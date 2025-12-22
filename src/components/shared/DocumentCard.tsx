@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 
 export interface Document {
   id: string;
-  title: string;
-  category: string;
-  publishedDate: string;
+  Title: string;
+  createdTime: string;
+   "Date Published": string;
   fileSize: string;
   year: number;
-  source?: string;
+  Source?: string;
+  Type: string;
+  "Document URL": string;
 }
 
 interface DocumentCardProps {
@@ -28,12 +30,12 @@ const DocumentCard = ({ document }: DocumentCardProps) => {
             to={`/documents/${document.id}`}
             className="font-display font-semibold text-foreground hover:text-primary transition-colors line-clamp-2 mb-2"
           >
-            {document.title}
+            {document.Title}
           </Link>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              {document.publishedDate}
+              {document["Date Published"]}
             </span>
             <span className="flex items-center gap-1">
               <HardDrive className="h-3 w-3" />
@@ -44,11 +46,19 @@ const DocumentCard = ({ document }: DocumentCardProps) => {
       </div>
       <div className="mt-4 flex items-center justify-between">
         <span className="inline-flex items-center rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-          {document.category}
+          {document.Type} - {document.Source}
         </span>
         <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
           <Download className="h-4 w-4 mr-1" />
+           <a
+                  href={document["Document URL"]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="inline-flex items-center"
+                > 
           Download
+          </a>
         </Button>
       </div>
     </div>
