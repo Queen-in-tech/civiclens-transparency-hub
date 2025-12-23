@@ -5,9 +5,11 @@ import SearchBar from "@/components/shared/SearchBar";
 import DocumentCard from "@/components/shared/DocumentCard";
 import CategoryCard from "@/components/shared/CategoryCard";
 import { Button } from "@/components/ui/button";
-import { categories, documents } from "@/data/mockData";
+import { useDocumentStats } from "@/hooks/useDocumentStats";
 
 const Index = () => {
+  const { categoriesWithCounts, totalDocuments, documents } = useDocumentStats();
+
   return (
     <Layout>
       {/* Hero Section */}
@@ -53,7 +55,7 @@ const Index = () => {
         <div className="container-custom">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
-              { icon: FileSearch, text: "699+ Documents" },
+              { icon: FileSearch, text: `${totalDocuments}+ Documents` },
               { icon: Shield, text: "Official Sources" },
               { icon: Bell, text: "Real-time Updates" },
               { icon: TrendingUp, text: "AI-Powered Search" },
@@ -92,13 +94,13 @@ const Index = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {categories.slice(0, 3).map((category) => (
+            {categoriesWithCounts.slice(0, 3).map((category) => (
               <CategoryCard key={category.id} category={category} />
             ))}
           </div>
 
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {categories.slice(3).map((category) => (
+            {categoriesWithCounts.slice(3).map((category) => (
               <CategoryCard key={category.id} category={category} variant="compact" />
             ))}
           </div>

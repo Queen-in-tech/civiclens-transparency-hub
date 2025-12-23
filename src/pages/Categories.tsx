@@ -1,8 +1,14 @@
 import Layout from "@/components/layout/Layout";
 import CategoryCard from "@/components/shared/CategoryCard";
-import { categories } from "@/data/mockData";
+import { useDocumentStats } from "@/hooks/useDocumentStats";
 
 const Categories = () => {
+  const { categoriesWithCounts, totalDocuments, recentDocuments, documentsByYear } = useDocumentStats();
+
+  // Calculate additional stats
+  const yearsCovered = Object.keys(documentsByYear).length;
+  const uniqueSources = new Set(categoriesWithCounts.map(cat => cat.name)).size;
+
   return (
     <Layout>
       {/* Header */}
@@ -21,7 +27,7 @@ const Categories = () => {
       <section className="py-12 md:py-16">
         <div className="container-custom">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category, index) => (
+            {categoriesWithCounts.map((category, index) => (
               <div
                 key={category.id}
                 className="animate-fade-in-up"
@@ -47,10 +53,10 @@ const Categories = () => {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
-              { label: "Total Documents", value: "699+" },
-              { label: "Categories", value: "5" },
-              { label: "Years Covered", value: "2015-2024" },
-              { label: "Sources", value: "20+" },
+              { label: "Total Documents", value: totalDocuments.toString() },
+              { label: "Categories", value: categoriesWithCounts.length.toString() },
+              { label: "Years Covered", value: yearsCovered.toString() },
+              { label: "Recent (30 days)", value: recentDocuments.toString() },
             ].map((stat, index) => (
               <div
                 key={index}
@@ -67,6 +73,4 @@ const Categories = () => {
       </section>
     </Layout>
   );
-};
-
-export default Categories;
+};export default Categories;

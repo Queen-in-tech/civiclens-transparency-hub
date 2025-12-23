@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Grid, List, Filter, X } from "lucide-react";
 import Layout from "@/components/layout/Layout";
@@ -7,7 +7,8 @@ import DocumentCard from "@/components/shared/DocumentCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { categories } from "@/data/mockData";
-import { apiService } from "@/data/apiService";
+import { useDocuments } from "@/hooks/useDocuments";
+import { useDocumentStats } from "@/hooks/useDocumentStats";
 
 const Documents = () => {
   const [searchParams] = useSearchParams();
@@ -18,20 +19,16 @@ const Documents = () => {
   );
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [documents, setDocuments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+
+  // Use React Query for global document state
+  const { data: documents = [], isLoading } = useDocuments();
+  const { categoriesWithCounts } = useDocumentStats();
 
   const years = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
   const [showAllYears, setShowAllYears] = useState(false);
   const displayedYears = showAllYears ? years : years.slice(0, 5);
-
-  // Calculate actual document counts for each category
-  const categoriesWithCounts = categories.map(category => ({
-    ...category,
-    documentCount: documents.filter(doc => doc.Type === category.id).length
-  }));
 
   const filteredDocuments = documents.filter((doc) => {
     // Search filter
@@ -127,16 +124,6 @@ const Documents = () => {
 
     return pages;
   };
-
-  useEffect(() => {
-    setIsLoading(true);
-    apiService.getDocuments().then((docs) => {
-      setDocuments(docs);
-      setIsLoading(false);
-    }).catch(() => {
-      setIsLoading(false);
-    });
-  }, []);
 
   // Reset to first page when filters change
   useEffect(() => {

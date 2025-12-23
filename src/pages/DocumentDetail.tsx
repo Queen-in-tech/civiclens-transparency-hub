@@ -15,8 +15,7 @@ import DocumentCard from "@/components/shared/DocumentCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { documents } from "@/data/mockData";
-import { useEffect, useState } from "react";
-import { apiService } from "@/data/apiService";
+import { useDocument } from "@/hooks/useDocuments";
 
 interface Document {
   id: string;
@@ -33,23 +32,13 @@ interface Document {
 }
 
 const DocumentDetail = () => {
-  const [document, setDocument] = useState<Document | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const { id } = useParams();
-  // const document = documents.find((d) => d.id === id);
 
-  useEffect(() => {
-    if (id) {
-      setIsLoading(true);
-      apiService.getDocumentById(id).then((doc) => {
-        console.log(doc[0])
-        setDocument(doc[0]);
-        setIsLoading(false);
-      }).catch(() => {
-        setIsLoading(false);
-      });
-    }
-  }, [id]);
+  // Use React Query for document fetching with caching
+  const { data: documentData, isLoading } = useDocument(id || "");
+
+  // Handle API returning array vs single object
+  const document = Array.isArray(documentData) ? documentData[0] : documentData;
 
   const cleanedHtml = (document["AI summary"] || "")
   .replace(/```[a-z]*\n?/g, "") // removes ``` or ```html
