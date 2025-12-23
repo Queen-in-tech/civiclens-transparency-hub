@@ -5,18 +5,27 @@ interface SearchBarProps {
   placeholder?: string;
   onSearch?: (query: string) => void;
   size?: "default" | "large";
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
 const SearchBar = ({ 
   placeholder = "Search documents...", 
   onSearch,
-  size = "default"
+  size = "default",
+  value = "",
+  onChange
 }: SearchBarProps) => {
-  const [query, setQuery] = useState("");
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch?.(query);
+    onSearch?.(value);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    onChange?.(newValue);
+    // If onSearch is provided and user wants real-time search, call it here
+    // For now, we'll keep it submit-only
   };
 
   return (
@@ -27,8 +36,8 @@ const SearchBar = ({
         }`} />
         <input
           type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={value}
+          onChange={handleChange}
           placeholder={placeholder}
           className={`w-full rounded-xl border border-input bg-card pl-11 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 ${
             size === "large" 

@@ -17,6 +17,7 @@ const Documents = () => {
     searchParams.get("category")
   );
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,15 +34,28 @@ const Documents = () => {
   }));
 
   const filteredDocuments = documents.filter((doc) => {
-    if (selectedCategory?.toLowerCase().replace(" ", "-") && doc?.Type?.toLowerCase().replace(" ", "-") !== selectedCategory) {
-      // Check if category name matches
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const titleMatch = doc.Title?.toLowerCase().includes(query);
+      const typeMatch = doc.Type?.toLowerCase().includes(query);
+      const sourceMatch = doc.Source?.toLowerCase().includes(query);
+      if (!titleMatch && !typeMatch && !sourceMatch) {
+        return false;
+      }
+    }
 
+    // Category filter
+    if (selectedCategory?.toLowerCase().replace(" ", "-") && doc?.Type?.toLowerCase().replace(" ", "-") !== selectedCategory) {
       const categoryMatch = categoriesWithCounts.find(c => c.id === selectedCategory);
       if (categoryMatch && doc.Type !== categoryMatch.id) {
         return false;
       }
     }
+
+    // Year filter
     if (selectedYear && new Date(doc["Date Published"]).getFullYear() !== selectedYear) return false;
+
     return true;
   });
 
@@ -54,10 +68,11 @@ const Documents = () => {
   const clearFilters = () => {
     setSelectedCategory(null);
     setSelectedYear(null);
-    setCurrentPage(1); // Reset to first page when clearing filters
+    setSearchQuery("");
+    setCurrentPage(1); 
   };
 
-  const hasActiveFilters = selectedCategory || selectedYear;
+  const hasActiveFilters = selectedCategory || selectedYear || searchQuery;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -126,7 +141,7 @@ const Documents = () => {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedYear]);
+  }, [selectedCategory, selectedYear, searchQuery]);
 
 
   return (
@@ -142,7 +157,12 @@ const Documents = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
-              <SearchBar placeholder="Search by title, keyword, or year..." />
+              <SearchBar
+                placeholder="Search by title, keyword, or year..."
+                onSearch={setSearchQuery}
+                value={searchQuery}
+                onChange={setSearchQuery}
+              />
             </div>
             <div className="flex gap-2">
               <Button
