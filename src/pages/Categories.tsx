@@ -18,7 +18,7 @@ const Categories = () => {
             Document Categories
           </h1>
           <p className="text-primary-foreground/80 text-lg">
-            Explore Nigeria's public finance documents organized by type and source
+            Explore Nigeria's public documents organized by type and source
           </p>
         </div>
       </section>
@@ -48,7 +48,7 @@ const Categories = () => {
               Document Statistics
             </h2>
             <p className="text-muted-foreground">
-              Our growing collection of public finance documents
+              Our growing collection of public documents
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">

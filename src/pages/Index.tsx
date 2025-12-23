@@ -23,7 +23,7 @@ const Index = () => {
         <div className="container-custom relative">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-bold text-primary-foreground mb-6 animate-fade-in">
-              Nigeria's Public Finance Documents in One Place
+              Nigeria's Public Documents in One Place
             </h1>
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-10 leading-relaxed animate-fade-in" style={{ animationDelay: "0.1s" }}>
               Access budgets, fiscal frameworks, and CBN publications. Search, understand, and stay informed about how public resources are managed.
@@ -154,7 +154,7 @@ const Index = () => {
             </div>
             <div className="relative max-w-2xl">
               <h2 className="font-display text-2xl md:text-3xl font-bold text-accent-foreground mb-4">
-                Ask Questions About Public Finance
+                Ask Questions About Public Document
               </h2>
               <p className="text-accent-foreground/80 mb-6 leading-relaxed">
                 Use our AI-powered search to ask natural language questions about budgets, policies, and financial data. Get instant answers with source references.

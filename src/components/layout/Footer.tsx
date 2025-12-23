@@ -17,7 +17,7 @@ const Footer = () => {
               </span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Making Nigeria's public finance documents accessible, searchable, and understandable for all citizens.
+              Making Nigeria's public documents accessible, searchable, and understandable for all citizens.
             </p>
           </div>
 
@@ -86,7 +86,7 @@ const Footer = () => {
 
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} CivicLens. Promoting transparency in public finance.
+            © {new Date().getFullYear()} CivicLens. Promoting transparency in public library.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
