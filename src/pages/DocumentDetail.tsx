@@ -9,12 +9,14 @@ import {
   Tag,
   ArrowLeft,
   Sparkles,
+  MessageSquare,
 } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import DocumentCard from "@/components/shared/DocumentCard";
+import DocumentChat from "@/components/shared/DocumentChat";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { documents } from "@/data/mockData";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDocument } from "@/hooks/useDocuments";
 
 interface Document {
@@ -199,28 +201,47 @@ const DocumentDetail = () => {
         </div>
       </section>
 
-      {/* Document Preview */}
+      {/* Document Preview & Chat Tabs */}
       <section className="py-8 md:py-12">
         <div className="container-custom">
           <div className="max-w-4xl">
-            <h2 className="font-display text-xl font-semibold text-foreground mb-6">
-              Document Preview
-            </h2>
-            <div className="aspect-[4/5] rounded-xl border border-border bg-card flex items-center justify-center">
-              {document["Document URL"] ? (
-                <iframe
-                  src={document["Document URL"]}
-                  className="w-full h-full"
-                  title={document.Title}
-                />
-              ) : (
-                <div className="text-center text-muted-foreground">
-                  <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p>Document preview will be displayed here</p>
-                  <p className="text-sm">Click download to access the full document</p>
+            <Tabs defaultValue="preview" className="w-full">
+              <TabsList className="mb-6">
+                <TabsTrigger value="preview" className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Document Preview
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Discuss with AI
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="preview">
+                <div className="aspect-[4/5] rounded-xl border border-border bg-card flex items-center justify-center">
+                  {document["Document URL"] ? (
+                    <iframe
+                      src={document["Document URL"]}
+                      className="w-full h-full rounded-xl"
+                      title={document.Title}
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                      <p>Document preview will be displayed here</p>
+                      <p className="text-sm">Click download to access the full document</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </TabsContent>
+              
+              <TabsContent value="chat">
+                <DocumentChat 
+                  documentUrl={document["Document URL"] || ""} 
+                  documentTitle={document.Title}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </section>
