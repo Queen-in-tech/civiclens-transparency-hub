@@ -1,73 +1,144 @@
-# Welcome to your Lovable project
+🇳🇬 Civic Budget Intelligence Platform
 
-## Project info
+A citizen-focused digital governance platform that aggregates, structures, and makes Nigerian federal budget and policy documents accessible through search, categorization, and AI-powered insights.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+🎯 Project Purpose
 
-## How can I edit this code?
+Public policy and budget documents are often:
 
-There are several ways of editing your application.
+scattered across government websites
 
-**Use Lovable**
+difficult to navigate
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+written in highly technical language
 
-Changes made via Lovable will be committed automatically to this repo.
+This project solves that by:
 
-**Use your preferred IDE**
+continuously collecting official budget documents
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+structuring them into a searchable database
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+enabling citizens, researchers, and civil society to explore, understand, and monitor public spending and fiscal policy
 
-Follow these steps:
+The platform is designed as a proof-of-concept for digital governance, transparency, and civic tech innovation.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+🧩 Key Features
+📄 Document Aggregation
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Automated scraping of official Nigerian budget sources
 
-# Step 3: Install the necessary dependencies.
-npm i
+Supports multiple years and document types
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Periodic updates via scheduled workflows
 
-**Edit a file directly in GitHub**
+🗂 Structured Categorization
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
 
-**Use GitHub Codespaces**
+Each document includes:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+title
 
-## What technologies are used for this project?
+publication date
 
-This project is built with:
+official source links (download, view, details)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+AI Summary
 
-## How can I deploy this project?
+🔍 Advanced Search
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Keyword-based filtering
 
-## Can I connect a custom domain to my Lovable project?
+Category-based browsing
 
-Yes, you can!
+AI-assisted semantic search (planned / experimental)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+🔔 Keyword Subscriptions
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Users can subscribe to keywords
+
+Future updates notify subscribers when new relevant documents are added
+
+🤖 AI Interaction (Planned)
+
+Natural-language questions over public documents
+
+AI-generated summaries and explanations
+
+Citizen-friendly interpretations of fiscal data
+
+🏗️ Architecture Overview
+Government Websites
+        ↓
+  Scraping & Parsing
+        ↓
+     n8n Workflows
+        ↓
+   Airtable (Database)
+        ↓
+ Public API (Webhooks)
+        ↓
+ React Frontend (Vercel)
+
+⚙️ Tech Stack
+Backend / Automation
+
+n8n – workflow automation, scraping, parsing, APIs
+
+Firecrawl – website scraping & markdown extraction
+
+Airtable – structured document storage
+
+Frontend
+
+React – UI and routing
+
+Tailwind CSS – styling
+
+Vercel – deployment
+
+AI (Experimental / Planned)
+
+LLM-based document summarization
+
+Semantic search over policy texts
+
+🌍 Deployment
+
+Frontend: Vercel
+
+Backend workflows: Self-hosted n8n
+
+Data source: Official Nigerian government budget portals
+
+Client-side routing is handled using SPA rewrites for deep linking (e.g. /documents/:id).
+
+🧠 Design Philosophy
+
+Citizen-first: Built for accessibility, not just experts
+
+Transparent: Links back to original government sources
+
+Modular: Each component (scraping, storage, UI, AI) is independently extensible
+
+Low-cost & scalable: Built with no-code and lightweight tools where possible
+
+🚀 Future Improvements
+
+Full AI-powered policy summarization
+
+Impact analysis (who does a policy affect?)
+
+Email / Telegram notifications for subscriptions
+
+Visual analytics (charts, budget breakdowns)
+
+Additional data sources (CBN circulars, Acts, Bills)
+
+🎓 Academic Context
+
+This project was developed as part of an academic and professional portfolio, demonstrating applied software engineering, digital governance innovation, and civic technology problem-solving. It aligns with interests in public sector technology, transparency, and citizen engagement.
+
+📜 Disclaimer
+
+This project is an independent civic tech initiative.
+All documents are sourced from publicly available government websites and remain the property of their respective institutions.
