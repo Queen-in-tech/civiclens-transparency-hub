@@ -4,7 +4,7 @@ import { Category } from "@/components/shared/CategoryCard";
 
 export const categories: Category[] = [
   {
-    id: "budget",
+    id: "Budget document",
     name: "Budget Documents",
     description: "Annual appropriation acts, budget proposals, and implementation reports from federal and state governments.",
     icon: FileText,
@@ -28,7 +28,7 @@ export const categories: Category[] = [
     color: "#7c3aed",
   },
   {
-    id: "cbn-publications",
+    id: "Publication",
     name: "CBN Publications",
     description: "Central Bank of Nigeria research papers, economic reports, and financial stability assessments.",
     icon: Building2,
@@ -36,7 +36,7 @@ export const categories: Category[] = [
     color: "#dc2626",
   },
   {
-    id: "cbn-circulars",
+    id: "Circular",
     name: "CBN Circulars",
     description: "Official circulars and directives from the Central Bank of Nigeria on monetary policy and banking regulations.",
     icon: ScrollText,

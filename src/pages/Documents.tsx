@@ -22,17 +22,26 @@ const Documents = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  const years = [2024, 2023, 2022, 2021, 2020];
+  const years = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
+  const [showAllYears, setShowAllYears] = useState(false);
+  const displayedYears = showAllYears ? years : years.slice(0, 5);
+
+  // Calculate actual document counts for each category
+  const categoriesWithCounts = categories.map(category => ({
+    ...category,
+    documentCount: documents.filter(doc => doc.Type === category.id).length
+  }));
 
   const filteredDocuments = documents.filter((doc) => {
-    if (selectedCategory && doc.category.toLowerCase().replace(" ", "-") !== selectedCategory) {
+    if (selectedCategory?.toLowerCase().replace(" ", "-") && doc?.Type?.toLowerCase().replace(" ", "-") !== selectedCategory) {
       // Check if category name matches
-      const categoryMatch = categories.find(c => c.id === selectedCategory);
-      if (categoryMatch && doc.category !== categoryMatch.name) {
+
+      const categoryMatch = categoriesWithCounts.find(c => c.id === selectedCategory);
+      if (categoryMatch && doc.Type !== categoryMatch.id) {
         return false;
       }
     }
-    if (selectedYear && doc.year !== selectedYear) return false;
+    if (selectedYear && new Date(doc["Date Published"]).getFullYear() !== selectedYear) return false;
     return true;
   });
 
@@ -119,6 +128,7 @@ const Documents = () => {
     setCurrentPage(1);
   }, [selectedCategory, selectedYear]);
 
+
   return (
     <Layout>
       {/* Header */}
@@ -128,7 +138,7 @@ const Documents = () => {
             Document Library
           </h1>
           <p className="text-muted-foreground mb-6">
-            Browse and download public finance documents
+            Browse and download public documents
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
@@ -203,7 +213,7 @@ const Documents = () => {
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-foreground mb-3">Category</h3>
                 <div className="space-y-2">
-                  {categories.map((category) => (
+                  {categoriesWithCounts.map((category) => (
                     <label
                       key={category.id}
                       className="flex items-center gap-2 cursor-pointer group"
@@ -234,7 +244,7 @@ const Documents = () => {
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-foreground mb-3">Year</h3>
                 <div className="space-y-2">
-                  {years.map((year) => (
+                  {displayedYears.map((year) => (
                     <label
                       key={year}
                       className="flex items-center gap-2 cursor-pointer group"
@@ -253,6 +263,14 @@ const Documents = () => {
                       </span>
                     </label>
                   ))}
+                  {years.length > 5 && (
+                    <button
+                      onClick={() => setShowAllYears(!showAllYears)}
+                      className="text-sm text-primary hover:underline mt-2 ml-6"
+                    >
+                      {showAllYears ? 'Show less' : `Show ${years.length - 5} more years`}
+                    </button>
+                  )}
                 </div>
               </div>
 
