@@ -40,10 +40,6 @@ const DocumentDetail = () => {
   // Handle API returning array vs single object
   const document = Array.isArray(documentData) ? documentData[0] : documentData;
 
-  const cleanedHtml = (document["AI summary"] || "")
-  .replace(/```[a-z]*\n?/g, "") // removes ``` or ```html
-  .replace(/```/g, "");         // removes any trailing ```
-
 
   if (isLoading) {
     return (
@@ -178,12 +174,20 @@ const DocumentDetail = () => {
                 <h2 className="font-display font-semibold text-foreground">AI-Generated Summary</h2>
               </div>
               <div className="prose prose-sm max-w-none text-muted-foreground">
-               <div
-                className="prose prose-sm max-w-none text-muted-foreground"
-                dangerouslySetInnerHTML={{
-                  __html: cleanedHtml || "<p>No summary available.</p>",
-                }}
-              />
+               {(() => {
+                 const cleanedHtml = (document["AI summary"] || "")
+                   .replace(/```[a-z]*\n?/g, "") // removes ``` or ```html
+                   .replace(/```/g, "");         // removes any trailing ```
+
+                 return (
+                   <div
+                     className="prose prose-sm max-w-none text-muted-foreground"
+                     dangerouslySetInnerHTML={{
+                       __html: cleanedHtml || "<p>No summary available.</p>",
+                     }}
+                   />
+                 );
+               })()}
 
                
                 <p className="mt-4 text-xs text-muted-foreground italic">
