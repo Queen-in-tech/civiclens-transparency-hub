@@ -11,7 +11,7 @@ export const categories: Category[] = [
     color: "#1e40af",
   },
   {
-    id: "mtef",
+    id: "MTEF policy document",
     name: "MTEF",
     description: "Medium-Term Expenditure Framework documents outlining multi-year fiscal planning and resource allocation.",
     icon: BarChart3,
@@ -19,7 +19,7 @@ export const categories: Category[] = [
     color: "#0d9488",
   },
   {
-    id: "mtss",
+    id: "MTSS policy document",
     name: "MTSS",
     description: "Medium-Term Sector Strategies providing sector-specific development plans and budget frameworks.",
     icon: BookOpen,
