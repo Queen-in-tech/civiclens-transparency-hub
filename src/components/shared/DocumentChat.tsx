@@ -74,12 +74,22 @@ const DocumentChat = ({ documentUrl, documentTitle }: DocumentChatProps) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // Handle both JSON and plain text responses
+      const responseText = await response.text();
+      let outputText: string;
       
-      // Response format: [{ "output": "..." }]
-      const outputText = Array.isArray(data) && data[0]?.output 
-        ? data[0].output 
-        : "No response received from the AI.";
+      try {
+        const data = JSON.parse(responseText);
+        // Response format: [{ "output": "..." }] or just a string
+        outputText = Array.isArray(data) && data[0]?.output 
+          ? data[0].output 
+          : typeof data === "string" 
+            ? data 
+            : responseText;
+      } catch {
+        // If not valid JSON, use the raw text response
+        outputText = responseText || "No response received from the AI.";
+      }
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
