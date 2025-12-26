@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useDocumentStats } from "@/hooks/useDocumentStats";
 
 const SUBSCRIPTION_ENDPOINT = "https://sheba-n8n.duckdns.org/webhook/57497a49-e246-40bf-994c-d0c5317c949b";
 
@@ -25,6 +26,8 @@ const Subscriptions = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const { toast } = useToast();
+  const { categoriesWithCounts} = useDocumentStats();
+  
 
   const handleCategoryToggle = (categoryId: string) => {
     setSelectedCategories((prev) =>
@@ -45,8 +48,8 @@ const Subscriptions = () => {
     
     // Get category names from selected IDs
     const categoryNames = selectedCategories
-      .map((id) => categories.find((c) => c.id === id)?.name)
-      .filter((name): name is string => !!name);
+      .map((id) => categoriesWithCounts.find((c) => c.id === id)?.id)
+      .filter((id): id is string => !!id);
 
     const payload = {
       email,
@@ -201,7 +204,7 @@ const Subscriptions = () => {
                   Categories
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {categories.map((category) => {
+                  {categoriesWithCounts.map((category) => {
                     const isSelected = selectedCategories.includes(category.id);
                     return (
                       <button
