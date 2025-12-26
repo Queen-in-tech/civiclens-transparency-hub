@@ -1,14 +1,30 @@
 import { useState } from "react";
-import { Bell, Check, Mail } from "lucide-react";
+import { Bell, Check, Mail, Loader2 } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { categories } from "@/data/mockData";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const SUBSCRIPTION_ENDPOINT = "https://sheba-n8n.duckdns.org/webhook/57497a49-e246-40bf-994c-d0c5317c949b";
 
 const Subscriptions = () => {
   const [email, setEmail] = useState("");
   const [keywords, setKeywords] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const { toast } = useToast();
 
   const handleCategoryToggle = (categoryId: string) => {
     setSelectedCategories((prev) =>
@@ -18,10 +34,77 @@ const Subscriptions = () => {
     );
   };
 
+  const submitSubscription = async (update: boolean = false) => {
+    setIsLoading(true);
+    
+    // Parse keywords into array
+    const keywordsArray = keywords
+      .split(",")
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+    
+    // Get category names from selected IDs
+    const categoryNames = selectedCategories
+      .map((id) => categories.find((c) => c.id === id)?.name)
+      .filter((name): name is string => !!name);
+
+    const payload = {
+      email,
+      categories: categoryNames,
+      keywords: keywordsArray,
+      update,
+    };
+
+    try {
+      const response = await fetch(SUBSCRIPTION_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await response.text();
+      
+      // Check if subscription already exists
+      if (responseText.includes("An active subscription exist")) {
+        setShowUpdateDialog(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // Check for success
+      if (responseText.includes("Subscription created") || response.ok) {
+        setIsSubmitted(true);
+        toast({
+          title: "Success!",
+          description: update 
+            ? "Your subscription has been updated successfully." 
+            : "Your subscription has been created. Check your email for confirmation.",
+        });
+      } else {
+        throw new Error(responseText || "Failed to create subscription");
+      }
+    } catch (error) {
+      console.error("Subscription error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create subscription. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate submission
-    setIsSubmitted(true);
+    submitSubscription(false);
+  };
+
+  const handleUpdateConfirm = () => {
+    setShowUpdateDialog(false);
+    submitSubscription(true);
   };
 
   if (isSubmitted) {
@@ -163,10 +246,19 @@ const Subscriptions = () => {
                   variant="hero"
                   size="xl"
                   className="w-full"
-                  disabled={!email}
+                  disabled={!email || isLoading}
                 >
-                  <Bell className="h-5 w-5 mr-2" />
-                  Subscribe to Updates
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Subscribing...
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="h-5 w-5 mr-2" />
+                      Subscribe to Updates
+                    </>
+                  )}
                 </Button>
                 <p className="mt-4 text-center text-xs text-muted-foreground">
                   You can unsubscribe at any time. We respect your privacy.
@@ -208,6 +300,24 @@ const Subscriptions = () => {
           </div>
         </div>
       </section>
+
+      {/* Update Confirmation Dialog */}
+      <AlertDialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Active Subscription Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              An active subscription already exists for this email address. Would you like to update your subscription preferences?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUpdateConfirm}>
+              Update Subscription
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
