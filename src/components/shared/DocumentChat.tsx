@@ -40,39 +40,51 @@ const DocumentChat = ({ documentUrl, documentTitle }: DocumentChatProps) => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
 
     try {
-      // This is where you'd call your endpoint
-      // The payload structure: { documentUrl, message: input.trim() }
+      // Build history from last 5-7 messages (excluding the current one)
+      const historyMessages = updatedMessages.slice(-7, -1).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
       const payload = {
-        documentUrl,
-        message: input.trim(),
+        documentURL: documentUrl,
+        text: input.trim(),
+        history: historyMessages,
+        documentName: documentTitle,
       };
 
       console.log("Sending to endpoint:", payload);
 
-      // Simulate AI response for now
-      // Replace this with actual API call:
-      // const response = await fetch('/api/chat', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(payload)
-      // });
-      // const data = await response.json();
+      const response = await fetch(
+        "https://sheba-n8n.duckdns.org/webhook/8ad47f16-6e98-404c-9cda-f4bacdb9bd17",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
 
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Response format: [{ "output": "..." }]
+      const outputText = Array.isArray(data) && data[0]?.output 
+        ? data[0].output 
+        : "No response received from the AI.";
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Based on the document "${documentTitle}", I can help answer your question about: "${userMessage.content}". 
-
-This is a simulated response. Connect your AI endpoint to get real answers from the document.
-
-**Document URL being analyzed:** ${documentUrl}`,
+        content: outputText,
         timestamp: new Date(),
       };
 
