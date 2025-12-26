@@ -69,6 +69,11 @@ const Subscriptions = () => {
 
       const responseText = await response.text();
       
+      // If no response message, treat as error
+      if (!responseText || responseText.trim() === "") {
+        throw new Error("No response received from server");
+      }
+      
       // Check if subscription already exists
       if (responseText.includes("An active subscription exist")) {
         setShowUpdateDialog(true);
@@ -76,8 +81,8 @@ const Subscriptions = () => {
         return;
       }
 
-      // Check for success
-      if (responseText.includes("Subscription created") || response.ok) {
+      // Check for success - must have explicit success message
+      if (responseText.includes("Subscription created")) {
         setIsSubmitted(true);
         toast({
           title: "Success!",
