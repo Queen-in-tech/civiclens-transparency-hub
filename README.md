@@ -134,10 +134,6 @@ Visual analytics (charts, budget breakdowns)
 
 Additional data sources (CBN circulars, Acts, Bills)
 
-🎓 Academic Context
-
-This project was developed as part of an academic and professional portfolio, demonstrating applied software engineering, digital governance innovation, and civic technology problem-solving. It aligns with interests in public sector technology, transparency, and citizen engagement.
-
 📜 Disclaimer
 
 This project is an independent civic tech initiative.
