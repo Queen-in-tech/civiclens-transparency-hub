@@ -62,7 +62,7 @@ const DocumentChat = ({ documentUrl, documentTitle }: DocumentChatProps) => {
       console.log("Sending to endpoint:", payload);
 
       const response = await fetch(
-        "https://sheba-n8n.duckdns.org/webhook/8ad47f16-6e98-404c-9cda-f4bacdb9bd17",
+        "https://n8n.royalvilletechnologies.com/webhook/8ad47f16-6e98-404c-9cda-f4bacdb9bd17",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

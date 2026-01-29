@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useDocumentStats } from "@/hooks/useDocumentStats";
 
-const SUBSCRIPTION_ENDPOINT = "https://sheba-n8n.duckdns.org/webhook/57497a49-e246-40bf-994c-d0c5317c949b";
+const SUBSCRIPTION_ENDPOINT = "https://n8n.royalvilletechnologies.com/webhook/57497a49-e246-40bf-994c-d0c5317c949b";
 
 const Subscriptions = () => {
   const [email, setEmail] = useState("");
