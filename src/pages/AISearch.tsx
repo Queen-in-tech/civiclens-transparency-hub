@@ -50,7 +50,7 @@ const AISearch = () => {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: `Based on my analysis of the available public finance documents, here's what I found regarding "${message}":\n\nThe 2024 Federal Budget allocates significant resources across various sectors. The health sector received approximately ₦1.33 trillion, representing about 4.6% of the total budget. This includes allocations for primary healthcare, hospital infrastructure, and disease control programs.\n\nKey budget items include:\n• Primary Healthcare Development: ₦420 billion\n• Hospital Infrastructure: ₦280 billion\n• Disease Prevention Programs: ₦180 billion\n• Medical Equipment & Supplies: ₦150 billion\n\nThis represents a 12% increase from the 2023 allocation.`,
+        content: `Based on my analysis of the available public documents, here's what I found regarding "${message}":\n\nThe 2024 Federal Budget allocates significant resources across various sectors. The health sector received approximately ₦1.33 trillion, representing about 4.6% of the total budget. This includes allocations for primary healthcare, hospital infrastructure, and disease control programs.\n\nKey budget items include:\n• Primary Healthcare Development: ₦420 billion\n• Hospital Infrastructure: ₦280 billion\n• Disease Prevention Programs: ₦180 billion\n• Medical Equipment & Supplies: ₦150 billion\n\nThis represents a 12% increase from the 2023 allocation.`,
         sources: [
           { title: "2024 Federal Republic of Nigeria Appropriation Act", id: "1" },
           { title: "Health Sector MTSS 2024-2026", id: "3" },
@@ -79,7 +79,7 @@ const AISearch = () => {
               </h1>
             </div>
             <p className="text-muted-foreground">
-              Ask natural language questions about Nigeria's public finance documents
+              Ask natural language questions about Nigeria's public documents
             </p>
           </div>
         </section>
@@ -187,7 +187,7 @@ const AISearch = () => {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question about public finance..."
+                  placeholder="Ask a question about public documents..."
                   className="flex-1 h-12 px-4 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                   disabled={isLoading}
                 />

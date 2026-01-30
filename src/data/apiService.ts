@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-const API_BASE = 'https://n8n.royalvilletechnologies.com/webhook/';
+const API_BASE = 'https://n8n.royalvilletechnologies.com/webhook';
 
 export const apiService = {
   getDocuments: async () => {
