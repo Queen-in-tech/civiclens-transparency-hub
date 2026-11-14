@@ -5,7 +5,11 @@ import { categories } from "@/data/mockData";
 export const useDocumentStats = () => {
   const { data: documents = [] } = useDocuments();
 
+ // Debugging line to check the fetched documents
+
   const stats = useMemo(() => {
+    //  const fields = documents.map(doc => doc.fields);
+  // console.log("fields:", fields); 
     // Calculate actual document counts for each category
     const categoriesWithCounts = categories.map(category => ({
       ...category,
@@ -30,6 +34,7 @@ export const useDocumentStats = () => {
       return publishDate >= thirtyDaysAgo;
     }).length;
 
+   
     return {
       categoriesWithCounts,
       totalDocuments,

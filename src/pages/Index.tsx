@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useDocumentStats } from "@/hooks/useDocumentStats";
 
 const Index = () => {
-  const { categoriesWithCounts, totalDocuments, documents } = useDocumentStats();
+  const { categoriesWithCounts, totalDocuments, documents
+   } = useDocumentStats();
 
   return (
     <Layout>

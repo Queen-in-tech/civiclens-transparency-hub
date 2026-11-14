@@ -30,6 +30,8 @@ const Documents = () => {
   const [showAllYears, setShowAllYears] = useState(false);
   const displayedYears = showAllYears ? years : years.slice(0, 5);
 
+  console.log("documents:", documents); // Debugging line to check the fetched documents
+
   const filteredDocuments = documents.filter((doc) => {
     // Search filter
     if (searchQuery) {

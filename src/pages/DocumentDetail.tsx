@@ -239,6 +239,8 @@ const DocumentDetail = () => {
                 <DocumentChat 
                   documentUrl={document["Document URL"] || ""} 
                   documentTitle={document.Title}
+                  documentType={document.Type || ""}
+                  id={document.id || ""}
                 />
               </TabsContent>
             </Tabs>

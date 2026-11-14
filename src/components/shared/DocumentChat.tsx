@@ -13,9 +13,11 @@ interface Message {
 interface DocumentChatProps {
   documentUrl: string;
   documentTitle: string;
+  documentType: string;
+  id: number | string; // Added id prop to DocumentChatProps
 }
 
-const DocumentChat = ({ documentUrl, documentTitle }: DocumentChatProps) => {
+const DocumentChat = ({ documentUrl, documentTitle, documentType, id  }: DocumentChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -57,12 +59,14 @@ const DocumentChat = ({ documentUrl, documentTitle }: DocumentChatProps) => {
         text: input.trim(),
         history: historyMessages,
         documentName: documentTitle,
+        documentType: documentType,
+        documentId: id, // Include the document ID in the payload
       };
 
       console.log("Sending to endpoint:", payload);
 
       const response = await fetch(
-        "https://n8n.royalvilletechnologies.com/webhook/8ad47f16-6e98-404c-9cda-f4bacdb9bd17",
+        "https://n8n.arokolabs.com/webhook/8ad47f16-6e98-404c-9cda-f4bacdb9bd17",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
