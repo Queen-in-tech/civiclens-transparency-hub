@@ -10,6 +10,7 @@ import Categories from "./pages/Categories";
 import AISearch from "./pages/AISearch";
 import Subscriptions from "./pages/Subscriptions";
 import NotFound from "./pages/NotFound";
+import Indicators from "./pages/Indicators";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/documents/:id" element={<DocumentDetail />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/ai-search" element={<AISearch />} />
+          <Route path="/indicators" element={<Indicators />} />
           <Route path="/subscriptions" element={<Subscriptions />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
