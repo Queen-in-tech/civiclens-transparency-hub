@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ["Public Sans", "system-ui", "sans-serif"],
         display: ["Bricolage Grotesque", "Public Sans", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

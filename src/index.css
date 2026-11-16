@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&family=JetBrains+Mono:wght@400;500;700&family=Public+Sans:wght@400;500;600;700&display=swap');
 
 
 @tailwind base;
@@ -8,35 +8,35 @@
 
 @layer base {
   :root {
-    --background: 226 49% 97%;
-    --foreground: 230 35% 13%;
+    --background: 45 22% 97%;
+    --foreground: 240 9% 4%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 230 35% 13%;
+    --card: 42 33% 98%;
+    --card-foreground: 240 9% 4%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 230 35% 13%;
+    --popover: 42 33% 98%;
+    --popover-foreground: 240 9% 4%;
 
     --primary: 229 58% 26%;
-    --primary-foreground: 226 49% 97%;
+    --primary-foreground: 45 22% 97%;
 
-    --secondary: 226 57% 93%;
-    --secondary-foreground: 230 35% 13%;
+    --secondary: 46 21% 92%;
+    --secondary-foreground: 240 9% 4%;
 
-    --muted: 226 45% 95%;
-    --muted-foreground: 229 21% 36%;
+    --muted: 46 21% 94%;
+    --muted-foreground: 52 8% 34%;
 
     --accent: 41 100% 27%;
     --accent-foreground: 0 0% 100%;
 
     --gold: 40 76% 53%;
-    --gold-foreground: 230 35% 13%;
+    --gold-foreground: 240 9% 4%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 226 45% 89%;
-    --input: 226 45% 89%;
+    --border: 48 12% 83%;
+    --input: 48 12% 83%;
     --ring: 229 58% 26%;
 
     --radius: 0.75rem;
@@ -113,6 +113,10 @@
 }
 
 @layer utilities {
+  .display-condensed {
+    font-stretch: 80%;
+  }
+
   .text-balance {
     text-wrap: balance;
   }
