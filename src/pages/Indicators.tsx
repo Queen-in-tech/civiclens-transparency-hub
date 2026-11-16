@@ -1,509 +1,290 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowDownAZ, BarChart3, Check, ChevronRight, ExternalLink, RefreshCw, Search, X } from "lucide-react";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Download, Link2, Plus, RefreshCw, X } from "lucide-react";
 import Layout from "@/components/layout/Layout";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiService, type IndicatorObservation } from "@/data/apiService";
 
-type IndicatorSeries = {
-  key: string;
-  code: string;
-  name: string;
-  unit: string;
-  sourceId: string;
-  sourceName: string;
-  sourceUrl: string;
-  topic: string;
-  observations: (IndicatorObservation & { chartValue: number })[];
-  scale: number;
+const COLORS = ["#1C2B6B", "#B07A00", "#C2410C", "#0F766E", "#3B82C4", "#6B5B4B"];
+const INK = "#0A0A0C", GRID = "#DAD8D0", MUTED = "#5B5A54";
+const MAX_SERIES = 6;
+const EASE = "transition-all duration-200 ease-out";
+const SOURCES: [RegExp, string][] = [[/wb|world/i, "World Bank"], [/imf/i, "IMF"], [/unicef/i, "UNICEF"]];
+const PRIORITY = [/gdp growth|\.KD\.ZG/i, /inflation|\.CPI\./i, /population,? total|\.POP\.TOTL/i, /gdp.*current|\.MKTP\.CD/i, /unemploy/i, /exchange rate/i];
+
+type Mode = "indexed" | "actual";
+interface Row { period: number; value: number; projected: boolean }
+interface Series { key: string; name: string; unit: string; source: string; updated: string | null; rows: Row[] }
+
+const isPredicted = (o: IndicatorObservation) => /pred|projection|forecast/i.test(o.obs_status ?? "");
+const sourceName = (id?: string) => SOURCES.find(([re]) => re.test(id ?? ""))?.[1] ?? (id || "Unknown");
+const isPct = (unit: string) => /%|percent/i.test(unit);
+const fmt = (v: number, unit: string) =>
+  isPct(unit) ? `${v.toFixed(1)}%` : Math.abs(v) >= 1000
+    ? new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(v)
+    : v.toFixed(Math.abs(v) < 10 ? 2 : 1);
+const observed = (s: Series) => s.rows.filter((r) => !r.projected);
+const change = (s: Series) => {
+  const o = observed(s);
+  if (o.length < 2) return null;
+  const [p, l] = [o[o.length - 2].value, o[o.length - 1].value];
+  const d = isPct(s.unit) ? l - p : p ? (l / p - 1) * 100 : 0;
+  return { text: `${d >= 0 ? "+" : ""}${d.toFixed(1)}${isPct(s.unit) ? " pp" : "%"}`, up: d >= 0 };
 };
-
-type GroupMode = "source" | "topic" | "none";
-type SortMode = "name" | "latest" | "year" | "observations";
-
-const knownSources: Record<string, string> = {
-  "137": "World Bank",
-  "138": "IMF DataMapper",
-  "140": "UNICEF Data Warehouse (SDMX)",
-};
-
-const scaleFor = (unit: string, largestValue: number) => {
-  if (/usd|currency|current prices/i.test(unit)) return 1_000_000_000;
-  if (/person|population/i.test(unit)) return 1_000_000;
-  if (/percent|%/i.test(unit)) return 1;
-  if (largestValue >= 1_000_000_000) return 1_000_000_000;
-  if (largestValue >= 1_000_000) return 1_000_000;
-  if (largestValue >= 1_000) return 1_000;
-  return 1;
-};
-
-const formatValue = (value: number, unit: string, scale: number) => {
-  const scaled = value / scale;
-  const formatted = scaled.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (/usd|currency|current prices/i.test(unit)) return `$${formatted}B`;
-  if (/person|population/i.test(unit)) return `${formatted}M`;
-  if (/percent|%/i.test(unit)) return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`;
-  const suffix = scale >= 1_000_000_000 ? "B" : scale >= 1_000_000 ? "M" : scale >= 1_000 ? "K" : "";
-  return `${formatted}${suffix} ${unit}`.trim();
-};
-
-const formatDate = (value?: string) => {
-  if (!value) return "Unknown";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
-};
-
-const latestObservation = (series: IndicatorSeries) => series.observations[series.observations.length - 1];
-
-const isPredicted = (observation?: IndicatorObservation) => /pred|projection|forecast/i.test(observation?.obs_status || "");
-const isProjection = (observation?: IndicatorObservation) => isPredicted(observation) && (observation?.period ?? 0) > new Date().getFullYear();
-
-const observationLabel = (observation?: IndicatorObservation) => {
-  if (!observation) return "No observation";
-  if (isProjection(observation)) return `Projection · ${observation.period}`;
-  if (isPredicted(observation)) return `Predicted value · ${observation.period}`;
-  if (/estimate/i.test(observation.obs_status || "")) return `Historical estimate · ${observation.period}`;
-  return `Year ${observation.period}`;
-};
-
-const topicFor = (name: string, code: string) => {
-  const text = `${name} ${code}`.toLowerCase();
-  if (/population|demograph|fertility|life expectancy|migration/.test(text)) return "People & population";
-  if (/inflation|consumer price|price index|cpi/.test(text)) return "Prices & inflation";
-  if (/gdp|gross domestic|growth|investment|trade|export|import|account|debt|fiscal|revenue|expenditure|unemployment|employment/.test(text)) return "Economy & public finance";
-  if (/health|education|poverty|school|literacy|mortality|nutrition/.test(text)) return "People & services";
-  return "Other indicators";
+const ago = (ms: number) => {
+  const m = Math.floor(ms / 60000);
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} h ago`;
 };
 
 const Indicators = () => {
-  const [selectedCountry, setSelectedCountry] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSource, setSelectedSource] = useState("all");
-  const [sortMode, setSortMode] = useState<SortMode>("name");
-  const [groupMode, setGroupMode] = useState<GroupMode>("source");
-  const [selectedSeriesKey, setSelectedSeriesKey] = useState("");
-  const [compareCodes, setCompareCodes] = useState<string[]>([]);
-  const [comparisonOpen, setComparisonOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const pageSize = 24;
-  const { data = [], isLoading, isError, refetch, isFetching } = useQuery({
+  const [params, setParams] = useSearchParams();
+  const [now, setNow] = useState(Date.now());
+  const [find, setFind] = useState("");
+  const [copied, setCopied] = useState(false);
+  const { data = [], isLoading, isError, refetch, isFetching, dataUpdatedAt } = useQuery({
     queryKey: ["indicator-observations"],
     queryFn: apiService.getIndicatorObservations,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
   });
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(t); }, []);
 
   const countries = useMemo(() => {
-    const countryMap = new Map<string, string>();
-    data.forEach((item) => countryMap.set(item.country_code, item.country_name));
-    return Array.from(countryMap, ([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name));
+    const m = new Map<string, string>();
+    data.forEach((o) => m.set(o.country_code, o.country_name));
+    return Array.from(m, ([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [data]);
-
-  const activeCountry = countries.some((country) => country.code === selectedCountry)
-    ? selectedCountry
-    : countries[0]?.code ?? "";
-
-  const countrySeries = useMemo(() => {
-    const bySeries = new Map<string, IndicatorObservation[]>();
-    data
-      .filter((item) => item.country_code === activeCountry && item.value !== null && Number.isFinite(item.value))
-      .forEach((item) => {
-        const key = `${item.source_id ?? "unknown"}:${item.indicator_code}`;
-        const rows = bySeries.get(key) ?? [];
-        rows.push(item);
-        bySeries.set(key, rows);
-      });
-
-    return Array.from(bySeries.entries()).map(([key, rows]): IndicatorSeries => {
-      const sorted = [...rows].sort((a, b) => a.period - b.period);
-      const unit = sorted[0]?.unit ?? "";
-      const largestValue = Math.max(...sorted.map((row) => Math.abs(row.value ?? 0)));
-      const sourceId = sorted[0]?.source_id || "unknown";
-      const sourceName = knownSources[sourceId] || (sourceId === "unknown" ? "Unknown source" : `Source ${sourceId}`);
-      const sourceUrl = sorted[sorted.length - 1]?.source_url ?? "";
-      const name = sorted[0]?.indicator_name || sorted[0]?.indicator_code || key;
-      const projectionStart = sorted.findIndex((row) => isPredicted(row));
-      const observations = sorted.map((row, index) => {
-        const chartValue = (row.value ?? 0) / scaleFor(unit, largestValue);
-        const projected = isPredicted(row);
-        const isProjectionBoundary = projectionStart > 0 && index === projectionStart - 1;
-        return {
-          ...row,
-          chartValue,
-          observedValue: projected ? null : chartValue,
-          projectionValue: projected || isProjectionBoundary ? chartValue : null,
-        };
-      });
-      return {
-        key,
-        code: sorted[0]?.indicator_code || key,
-        name,
-        unit,
-        sourceId,
-        sourceName,
-        sourceUrl,
-        topic: topicFor(name, sorted[0]?.indicator_code || key),
-        scale: scaleFor(unit, largestValue),
-        observations,
-      };
-    });
-  }, [activeCountry, data]);
-
-  const sources = useMemo(() => {
-    const unique = new Map<string, string>();
-    countrySeries.forEach((item) => unique.set(item.sourceId, item.sourceName));
-    return Array.from(unique, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [countrySeries]);
+  const country = params.get("c") ?? (countries.find((c) => /nigeria/i.test(c.name))?.code ?? countries[0]?.code ?? "");
+  const range = params.get("r") ?? "10";
+  const mode = (params.get("m") as Mode) ?? "indexed";
+  const showProj = params.get("p") !== "0";
+  const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); v === null ? n.delete(k) : n.set(k, v); setParams(n, { replace: true }); };
 
   const series = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
-    return countrySeries
-      .filter((item) => selectedSource === "all" || item.sourceId === selectedSource)
-      .filter((item) => !search || `${item.name} ${item.code} ${item.unit} ${item.sourceName}`.toLowerCase().includes(search))
-      .sort((a, b) => {
-        if (sortMode === "latest") return (latestObservation(b)?.value ?? -Infinity) - (latestObservation(a)?.value ?? -Infinity);
-        if (sortMode === "year") return (latestObservation(b)?.period ?? 0) - (latestObservation(a)?.period ?? 0);
-        if (sortMode === "observations") return b.observations.length - a.observations.length;
-        return a.name.localeCompare(b.name);
+    const by = new Map<string, IndicatorObservation[]>();
+    data.filter((o) => o.country_code === country && o.value !== null && Number.isFinite(o.value))
+      .forEach((o) => { const k = `${o.source_id ?? ""}:${o.indicator_code}`; by.set(k, [...(by.get(k) ?? []), o]); });
+    return Array.from(by, ([key, rows]): Series => {
+      const s = [...rows].sort((a, b) => a.period - b.period);
+      const updated = s.map((r) => r.source_last_updated).filter(Boolean).sort().pop() ?? null;
+      return { key, name: s[0].indicator_name || s[0].indicator_code, unit: s[0].unit ?? "", source: sourceName(s[0].source_id), updated,
+        rows: s.map((r) => ({ period: r.period, value: r.value as number, projected: isPredicted(r) })) };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [data, country]);
+
+  const ticker = useMemo(() => {
+    const picked = PRIORITY.flatMap((re) => series.filter((s) => re.test(`${s.name} ${s.key}`)).slice(0, 1));
+    return (picked.length ? picked : series).slice(0, 6);
+  }, [series]);
+
+  const keys = (params.get("s")?.split(",").filter(Boolean) ?? ticker.slice(0, 2).map((s) => s.key))
+    .filter((k) => series.some((s) => s.key === k)).slice(0, MAX_SERIES);
+  const selected = keys.map((k) => series.find((s) => s.key === k) as Series);
+  const toggle = (k: string) => set("s", (keys.includes(k) ? keys.filter((x) => x !== k) : keys.length < MAX_SERIES ? [...keys, k] : keys).join(",") || null);
+
+  const { rows, axisOf } = useMemo(() => {
+    const years = new Set<number>();
+    selected.forEach((s) => s.rows.forEach((r) => (showProj || !r.projected) && years.add(r.period)));
+    const maxY = Math.max(...years), minY = range === "all" ? -Infinity : maxY - Number(range) + 1;
+    const vis = selected.map((s) => s.rows.filter((r) => r.period >= minY && r.period <= maxY && (showProj || !r.projected)));
+    const lo = vis.map((v) => Math.min(...v.map((r) => r.value))), hi = vis.map((v) => Math.max(...v.map((r) => r.value)));
+    const plot = (i: number, v: number) => mode === "actual" ? v : hi[i] === lo[i] ? 50 : ((v - lo[i]) / (hi[i] - lo[i])) * 100;
+    const map = new Map<number, Record<string, number>>();
+    vis.forEach((v, i) => {
+      v.forEach((r) => {
+        const o = map.get(r.period) ?? { period: r.period }; o[`v${i}`] = r.value; o[(r.projected ? "p" : "s") + i] = plot(i, r.value); map.set(r.period, o);
       });
-  }, [countrySeries, searchTerm, selectedSource, sortMode]);
-
-  useEffect(() => { setPage(1); }, [activeCountry, searchTerm, selectedSource, sortMode, groupMode]);
-  const pageCount = Math.max(1, Math.ceil(series.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  const pageSeries = series.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  const groups = useMemo(() => {
-    if (groupMode === "none") return [{ key: "all", title: "All indicators", items: pageSeries }];
-    const byGroup = new Map<string, IndicatorSeries[]>();
-    pageSeries.forEach((item) => {
-      const title = groupMode === "source" ? item.sourceName : item.topic;
-      const rows = byGroup.get(title) ?? [];
-      rows.push(item);
-      byGroup.set(title, rows);
+      const last = [...v].reverse().find((r) => !r.projected);
+      if (last && v.some((r) => r.projected)) (map.get(last.period) as Record<string, number>)[`p${i}`] = plot(i, last.value);
     });
-    return Array.from(byGroup, ([title, items]) => ({ key: title, title, items }))
-      .sort((a, b) => a.title.localeCompare(b.title));
-  }, [groupMode, pageSeries]);
+    return { rows: Array.from(map.values()).sort((a, b) => a.period - b.period), axisOf: (i: number) => (selected[i].unit === selected[0].unit ? "L" : "R") };
+  }, [selected, range, mode, showProj]);
 
-  const visibleObservationCount = series.reduce((total, item) => total + item.observations.length, 0);
-  const sourceLastUpdated = series.reduce<string | undefined>((newest, item) => {
-    item.observations.forEach((row) => {
-      if (row.source_last_updated && (!newest || row.source_last_updated > newest)) newest = row.source_last_updated;
-    });
-    return newest;
-  }, undefined);
-  const selectedSeries = countrySeries.find((item) => item.key === selectedSeriesKey);
-  const selectedLatest = selectedSeries?.observations[selectedSeries.observations.length - 1];
-  const comparedSeries = compareCodes.map((key) => countrySeries.find((item) => item.key === key)).filter((item): item is IndicatorSeries => Boolean(item));
-
-  const toggleCompare = (code: string) => {
-    setCompareCodes((current) => current.includes(code)
-      ? current.filter((item) => item !== code)
-      : current.length < 4 ? [...current, code] : current);
+  const csv = () => {
+    const head = ["period", ...selected.map((s) => `"${s.name} (${s.unit})"`)].join(",");
+    const body = rows.map((r) => [r.period, ...selected.map((_, i) => r[`v${i}`] ?? "")].join(","));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([[head, ...body].join("\n")], { type: "text/csv" }));
+    a.download = "civiclens-indicators.csv"; a.click();
   };
+  const share = async () => { await navigator.clipboard?.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); };
 
-  const closeSheet = (open: boolean) => {
-    if (!open) {
-      setSelectedSeriesKey("");
-      setComparisonOpen(false);
-    }
-  };
+  const list = series.filter((s) => `${s.name} ${s.source}`.toLowerCase().includes(find.toLowerCase()));
+  const hasR = selected.some((_, i) => axisOf(i) === "R");
+  const btn = (on: boolean) => `px-1 py-1 text-sm font-medium border-b-2 ${EASE} ${on ? "border-gold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`;
 
   return (
     <Layout>
-      <section className="bg-gradient-to-br from-primary via-primary/95 to-accent/80 py-14 md:py-20">
-        <div className="container-custom">
-          <p className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-primary-foreground/65">Civic data</p>
-          <h1 className="mb-4 text-3xl font-bold text-primary-foreground md:text-5xl">Indicators dashboard</h1>
-          <p className="max-w-2xl text-base leading-relaxed text-primary-foreground/80 md:text-lg">
-            Explore public indicators by publisher, compare trends, and open each series to see its source and values.
-          </p>
-        </div>
-      </section>
-
-      <section className="container-custom py-10 md:py-14">
-        <div className="mb-7 space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">Available indicator series</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {activeCountry ? `${countries.find((country) => country.code === activeCountry)?.name} · ` : ""}
-                {isLoading ? "Loading series…" : `${series.length} series · ${visibleObservationCount.toLocaleString()} observations · ${sources.length} sources`}
-                {sourceLastUpdated ? ` · source data updated ${formatDate(sourceLastUpdated)}` : ""}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {countries.length > 1 && (
-                <Select value={activeCountry} onValueChange={(value) => { setSelectedCountry(value); setCompareCodes([]); }}>
-                  <SelectTrigger className="w-full sm:w-[170px]" aria-label="Filter by country">
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {countries.map((country) => <SelectItem key={country.code} value={country.code}>{country.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
-              <div className="relative w-full sm:w-[230px]">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Find an indicator"
-                  aria-label="Search indicator name, code, unit or source"
-                  className="pl-9"
-                />
-              </div>
-              <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />Refresh
-              </Button>
-            </div>
+      <div className="container-custom py-12">
+        <header className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <h1 className="display-condensed font-display text-6xl font-extrabold leading-none tracking-tight md:text-7xl">Indicators</h1>
+            <p className="mt-3 max-w-xl text-muted-foreground">Pick series from the list and compare them on one chart. Every figure comes from the World Bank, IMF or UNICEF.</p>
           </div>
-
-          <div className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={selectedSource} onValueChange={setSelectedSource}>
-                <SelectTrigger className="w-full bg-background sm:w-[190px]" aria-label="Filter by data source">
-                  <SelectValue placeholder="All sources" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All sources</SelectItem>
-                  {sources.map((source) => <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={groupMode} onValueChange={(value) => setGroupMode(value as GroupMode)}>
-                <SelectTrigger className="w-full bg-background sm:w-[165px]" aria-label="Group indicators">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="source">Group by source</SelectItem>
-                  <SelectItem value="topic">Group by topic</SelectItem>
-                  <SelectItem value="none">No groups</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortMode} onValueChange={(value) => setSortMode(value as SortMode)}>
-                <SelectTrigger className="w-full bg-background sm:w-[190px]" aria-label="Sort indicators">
-                  <ArrowDownAZ className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Name, A–Z</SelectItem>
-                  <SelectItem value="latest">Latest value, high to low</SelectItem>
-                  <SelectItem value="year">Most recent year</SelectItem>
-                  <SelectItem value="observations">Most observations</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between gap-3 sm:justify-end">
-              <span className="text-xs text-muted-foreground">Select up to 4 indicators</span>
-              <Button onClick={() => { setSelectedSeriesKey(""); setComparisonOpen(true); }} disabled={compareCodes.length < 2}>
-                <BarChart3 className="mr-2 h-4 w-4" />Compare{compareCodes.length ? ` (${compareCodes.length})` : ""}
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <label className="sr-only" htmlFor="country">Country</label>
+            <select id="country" value={country} onChange={(e) => set("c", e.target.value)} className="border-b-2 border-border bg-transparent py-1 font-medium focus:border-gold focus:outline-none">
+              {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
+            <span className="inline-flex items-center gap-2 font-mono text-xs text-muted-foreground" aria-live="polite">
+              <span className={`h-2 w-2 rounded-full ${isError ? "bg-destructive" : "bg-gold"}`} aria-hidden="true" />
+              {isError ? "Feed unavailable" : dataUpdatedAt ? `Updated ${ago(now - dataUpdatedAt)}` : "Loading"}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} aria-hidden="true" />Refresh
+            </Button>
           </div>
-        </div>
+        </header>
 
-        {isError && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Indicator data is unavailable</AlertTitle>
-            <AlertDescription>We couldn’t load the series. Try refreshing in a moment.</AlertDescription>
-          </Alert>
+        {isLoading && <Skeleton className="mt-10 h-[520px] rounded-none" />}
+        {isError && !isLoading && (
+          <p className="mt-10 border-y border-border py-6">We could not load the indicators. Check your connection and press Refresh.</p>
         )}
 
-        {!isLoading && !isError && series.length === 0 && (
-          <Card><CardContent className="py-14 text-center text-sm text-muted-foreground">
-            {data.length === 0 ? "No indicator observations have been added yet." : "No indicators match these filters."}
-          </CardContent></Card>
-        )}
+        {!isLoading && series.length > 0 && (
+          <>
+            <ul className="mt-10 flex overflow-x-auto border-y border-border" aria-label="Key figures">
+              {ticker.map((s) => {
+                const o = observed(s), l = o[o.length - 1], c = change(s);
+                return (
+                  <li key={s.key} className="shrink-0 border-r border-border last:border-r-0">
+                    <button onClick={() => !keys.includes(s.key) && toggle(s.key)} className={`block min-w-[11rem] px-5 py-4 text-left hover:bg-secondary/60 ${EASE}`}>
+                      <span className="block truncate text-xs text-muted-foreground">{s.name}</span>
+                      <span className="block font-mono text-2xl font-medium tabular-nums">{l ? fmt(l.value, s.unit) : "n/a"}</span>
+                      {c && <span className="font-mono text-xs tabular-nums">{c.up ? "▲" : "▼"} {c.text}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
 
-        <div className="space-y-9">
-          {groups.map((group) => (
-            <section key={group.key} aria-label={group.title}>
-              {groupMode !== "none" && (
-                <div className="mb-3 flex items-center justify-between border-b pb-2">
-                  <h3 className="font-semibold text-foreground">{group.title}</h3>
-                  <span className="text-xs text-muted-foreground">{group.items.length} series</span>
-                </div>
-              )}
-              <div className="grid gap-3">
-                {group.items.map((item) => {
-                  const latest = item.observations[item.observations.length - 1];
-                  const isCompared = compareCodes.includes(item.key);
-                  return (
-                    <Card key={`${activeCountry}-${item.sourceId}-${item.code}`} className={`transition-colors ${isCompared ? "border-accent ring-1 ring-accent/30" : "hover:border-accent/40"}`}>
-                      <div className="flex items-stretch gap-2 p-3 sm:gap-4 sm:p-4">
-                        <label className="flex shrink-0 cursor-pointer items-start gap-2 pt-2 text-xs text-muted-foreground" title="Add to comparison">
-                          <input
-                            type="checkbox"
-                            checked={isCompared}
-                            disabled={!isCompared && compareCodes.length >= 4}
-                            onChange={() => toggleCompare(item.key)}
-                            aria-label={`${isCompared ? "Remove" : "Add"} ${item.name} ${isCompared ? "from" : "to"} comparison`}
-                            className="mt-0.5 h-4 w-4 accent-[hsl(var(--accent))]"
-                          />
-                          <span className="sr-only">Compare</span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => { setComparisonOpen(false); setSelectedSeriesKey(item.key); }}
-                          className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          aria-label={`View chart and source for ${item.name}`}
-                        >
+            <div className="mt-10 grid gap-10 md:grid-cols-12">
+              <aside className="md:col-span-4 lg:col-span-3" aria-label="Series list">
+                <label htmlFor="find" className="sr-only">Search series</label>
+                <input id="find" value={find} onChange={(e) => setFind(e.target.value)} placeholder="Search series"
+                  className="w-full border-b-2 border-border bg-transparent py-2 focus:border-gold focus:outline-none" />
+                <p className="mt-2 font-mono text-xs text-muted-foreground">{keys.length} of {MAX_SERIES} on chart</p>
+                <ul className="mt-2 max-h-[560px] divide-y divide-border overflow-y-auto border-y border-border">
+                  {list.slice(0, 80).map((s) => {
+                    const i = keys.indexOf(s.key), o = observed(s), l = o[o.length - 1];
+                    return (
+                      <li key={s.key}>
+                        <button onClick={() => toggle(s.key)} aria-pressed={i >= 0} disabled={i < 0 && keys.length >= MAX_SERIES}
+                          className={`flex w-full items-start gap-3 py-3 text-left hover:bg-secondary/60 disabled:opacity-40 ${EASE}`}>
+                          <span className="mt-1.5 flex h-3 w-3 shrink-0 items-center justify-center rounded-full" style={{ background: i >= 0 ? COLORS[i] : "transparent" }}>
+                            {i < 0 && <Plus className="h-3 w-3 text-muted-foreground" aria-hidden="true" />}
+                          </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block line-clamp-2 break-words font-semibold leading-snug text-foreground" title={item.name}>{item.name}</span>
-                            <span className="mt-1 block break-words text-sm text-muted-foreground">{item.code} · {item.unit || "unit not specified"}</span>
-                            <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                              <span className="inline-flex items-center gap-1 font-medium text-foreground/75"><ExternalLink className="h-3 w-3" />{item.sourceName}</span>
-                              <span aria-hidden="true">·</span><span>{item.observations.length} observations</span>
-                            </span>
+                            <span className="line-clamp-2 text-sm font-medium">{s.name}</span>
+                            <span className="font-mono text-xs text-muted-foreground">{s.source}{l ? `, ${l.period}` : ""}</span>
                           </span>
-                          <span className="flex shrink-0 items-center gap-2 sm:gap-3">
-                            <span className="text-right">
-                              <span className="block whitespace-nowrap font-semibold text-foreground">{latest ? formatValue(latest.value ?? 0, item.unit, item.scale) : "—"}</span>
-                              <span className={`mt-1 block text-xs ${isPredicted(latest) ? "font-medium text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>{observationLabel(latest)}</span>
-                            </span>
-                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                          </span>
+                          {l && <span className="font-mono text-sm tabular-nums">{fmt(l.value, s.unit)}</span>}
                         </button>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {list.length > 80 && <p className="mt-2 text-xs text-muted-foreground">Showing 80 of {list.length}. Search to narrow the list.</p>}
+              </aside>
 
-        {series.length > pageSize && <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t pt-5 sm:flex-row">
-          <p className="text-sm text-muted-foreground">Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, series.length)} of {series.length} indicators</p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>Previous</Button>
-            <span className="min-w-20 text-center text-sm text-muted-foreground">Page {currentPage} of {pageCount}</span>
-            <Button variant="outline" size="sm" onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount}>Next</Button>
-          </div>
-        </div>}
-
-        <Sheet open={Boolean(selectedSeries) || comparisonOpen} onOpenChange={closeSheet}>
-          <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-4xl">
-            {comparisonOpen ? (
-              <>
-                <SheetHeader className="pr-8">
-                  <SheetTitle>Compare indicator trends</SheetTitle>
-                  <SheetDescription>Each series has its own scale, unit, and source so values remain readable.</SheetDescription>
-                </SheetHeader>
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  {comparedSeries.map((item) => (
-                    <Card key={`${item.sourceId}-${item.code}`}>
-                      <CardHeader className="p-4 pb-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <CardTitle className="break-words text-base leading-snug">{item.name}</CardTitle>
-                            <CardDescription className="mt-1 break-words">{item.sourceName} · {item.unit || "unit not specified"}</CardDescription>
-                          </div>
-                          <Button variant="ghost" size="icon" aria-label={`Remove ${item.name} from comparison`} onClick={() => toggleCompare(item.key)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="px-2 pb-3">
-                        <div className="h-[210px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={item.observations} margin={{ top: 8, right: 12, left: 4, bottom: 2 }}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis dataKey="period" tickLine={false} axisLine={false} minTickGap={20} />
-                              <YAxis tickFormatter={(value: number) => formatValue(value * item.scale, item.unit, item.scale).split(" ")[0]} tickLine={false} axisLine={false} width={58} tick={{ fontSize: 11 }} />
-                              <Tooltip
-                                formatter={(value: number) => [formatValue(value * item.scale, item.unit, item.scale), item.name]}
-                                labelFormatter={(label) => `Year ${label}`}
-                                contentStyle={{ borderRadius: 12, borderColor: "hsl(var(--border))" }}
-                              />
-                              <Line type="monotone" dataKey="observedValue" name="Historical" stroke="hsl(var(--accent))" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} connectNulls={false} />
-                              <Line type="monotone" dataKey="projectionValue" name="Predicted / projected" stroke="hsl(var(--accent))" strokeWidth={2.5} strokeDasharray="6 4" dot={false} activeDot={{ r: 4 }} connectNulls={false} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <p className="px-2 text-xs text-muted-foreground">{item.observations.length} annual observations · {item.observations[0]?.period}–{latestObservation(item)?.period}{item.observations.some(isPredicted) ? " · solid = other values, dashed = source-predicted values" : ""}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </>
-            ) : selectedSeries ? (
-              <>
-                <SheetHeader className="pr-8">
-                  <SheetTitle>{selectedSeries.name}</SheetTitle>
-                  <SheetDescription>{selectedSeries.code} · {selectedSeries.unit || "unit not specified"} · {selectedSeries.sourceName}</SheetDescription>
-                </SheetHeader>
-
-                <div className="mt-7 grid gap-4 sm:grid-cols-3">
-                  <Card>
-                    <CardHeader className="p-4 pb-2"><CardDescription>Latest value</CardDescription><CardTitle className="text-xl">{selectedLatest ? formatValue(selectedLatest.value ?? 0, selectedSeries.unit, selectedSeries.scale) : "—"}</CardTitle></CardHeader>
-                    <CardContent className={`px-4 pb-4 text-xs ${isPredicted(selectedLatest) ? "font-medium text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>{observationLabel(selectedLatest)}</CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="p-4 pb-2"><CardDescription>Observations</CardDescription><CardTitle className="text-xl">{selectedSeries.observations.length.toLocaleString()}</CardTitle></CardHeader>
-                    <CardContent className="px-4 pb-4 text-xs text-muted-foreground">Annual values available</CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="p-4 pb-2"><CardDescription>Source updated</CardDescription><CardTitle className="text-xl">{formatDate(selectedLatest?.source_last_updated)}</CardTitle></CardHeader>
-                    <CardContent className="px-4 pb-4 text-xs text-muted-foreground">Retrieved {formatDate(selectedLatest?.fetched_at)}</CardContent>
-                  </Card>
+              <section className="md:col-span-8 lg:col-span-9" aria-label="Comparison chart">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex gap-5" role="group" aria-label="Range">
+                    {["5", "10", "all"].map((r) => <button key={r} aria-pressed={range === r} onClick={() => set("r", r)} className={btn(range === r)}>{r === "all" ? "All" : `${r}Y`}</button>)}
+                  </div>
+                  <div className="flex flex-wrap gap-5" role="group" aria-label="Chart options">
+                    <button aria-pressed={mode === "indexed"} onClick={() => set("m", "indexed")} className={btn(mode === "indexed")}>Compare shapes</button>
+                    <button aria-pressed={mode === "actual"} onClick={() => set("m", "actual")} className={btn(mode === "actual")}>Actual values</button>
+                    <button aria-pressed={showProj} onClick={() => set("p", showProj ? "0" : null)} className={btn(showProj)}>Projections</button>
+                  </div>
                 </div>
 
-                <Card className="mt-5">
-                  <CardHeader><CardTitle className="text-base">Indicator trend</CardTitle><CardDescription>{selectedSeries.observations[0]?.period}–{selectedLatest?.period} · {selectedSeries.unit || "unit not specified"}{selectedSeries.observations.some(isPredicted) ? " · solid = other values, dashed = source-predicted values" : ""}</CardDescription></CardHeader>
-                  <CardContent>
-                    <div className="h-[340px] w-full" aria-label={`${selectedSeries.name} annual trend chart`}>
+                {selected.length === 0 ? (
+                  <p className="mt-6 border-y border-border py-24 text-center text-muted-foreground">Pick a series from the list to start.</p>
+                ) : (
+                  <>
+                    <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+                      {selected.map((s, i) => (
+                        <li key={s.key} className="flex items-center gap-2 text-sm">
+                          <span className="h-3 w-3 rounded-full" style={{ background: COLORS[i] }} aria-hidden="true" />{s.name}
+                          <button onClick={() => toggle(s.key)} aria-label={`Remove ${s.name}`} className={`text-muted-foreground hover:text-foreground ${EASE}`}><X className="h-4 w-4" /></button>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 h-[440px]" role="img" aria-label={`Chart comparing ${selected.map((s) => s.name).join(", ")}. The table below has the same figures.`}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={selectedSeries.observations} margin={{ top: 8, right: 18, left: 8, bottom: 4 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="period" tickLine={false} axisLine={false} minTickGap={22} />
-                          <YAxis tickFormatter={(value: number) => formatValue(value * selectedSeries.scale, selectedSeries.unit, selectedSeries.scale).split(" ")[0]} tickLine={false} axisLine={false} width={64} tick={{ fontSize: 12 }} />
-                          <Tooltip formatter={(value: number, name: string) => [formatValue(value * selectedSeries.scale, selectedSeries.unit, selectedSeries.scale), name]} labelFormatter={(label) => `Year ${label}`} contentStyle={{ borderRadius: 12, borderColor: "hsl(var(--border))" }} />
-                          <Line type="monotone" dataKey="observedValue" name="Historical" stroke="hsl(var(--accent))" strokeWidth={2.5} dot={false} activeDot={{ r: 5, fill: "hsl(var(--accent))" }} connectNulls={false} />
-                          <Line type="monotone" dataKey="projectionValue" name="Predicted / projected" stroke="hsl(var(--accent))" strokeWidth={2.5} strokeDasharray="6 4" dot={false} activeDot={{ r: 5, fill: "hsl(var(--accent))" }} connectNulls={false} />
+                        <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                          <CartesianGrid stroke={GRID} vertical={false} />
+                          <XAxis dataKey="period" tick={{ fill: MUTED, fontSize: 12, fontFamily: "JetBrains Mono" }} stroke={GRID} />
+                          <YAxis yAxisId="L" domain={mode === "indexed" ? [0, 100] : ["auto", "auto"]} tick={{ fill: MUTED, fontSize: 12, fontFamily: "JetBrains Mono" }} stroke={GRID} width={48}
+                            tickFormatter={(v) => mode === "indexed" ? String(v) : fmt(v, selected[0]?.unit ?? "")} />
+                          {mode === "actual" && hasR && <YAxis yAxisId="R" orientation="right" tick={{ fill: MUTED, fontSize: 12, fontFamily: "JetBrains Mono" }} stroke={GRID} width={48} />}
+                          <Tooltip cursor={{ stroke: INK, strokeWidth: 1 }} content={({ active, payload }) => {
+                            const r = active ? (payload?.[0]?.payload as Record<string, number> | undefined) : undefined;
+                            if (!r) return null;
+                            return (
+                              <div className="border border-border bg-card px-4 py-3 text-sm shadow-soft">
+                                <p className="mb-1 font-mono font-medium">{r.period}</p>
+                                {selected.map((s, i) => r[`v${i}`] !== undefined && (
+                                  <p key={s.key} className="flex items-center justify-between gap-6">
+                                    <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: COLORS[i] }} />{s.name}</span>
+                                    <span className="font-mono tabular-nums">{fmt(r[`v${i}`], s.unit)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            );
+                          }} />
+                          {selected.map((s, i) => (
+                            <Line key={`s${s.key}`} yAxisId={mode === "actual" ? axisOf(i) : "L"} dataKey={`s${i}`} stroke={COLORS[i]} strokeWidth={2.5} dot={false} connectNulls isAnimationActive={false} />
+                          ))}
+                          {showProj && selected.map((s, i) => (
+                            <Line key={`p${s.key}`} yAxisId={mode === "actual" ? axisOf(i) : "L"} dataKey={`p${i}`} stroke={COLORS[i]} strokeWidth={2.5} strokeDasharray="6 5" dot={false} connectNulls isAnimationActive={false} />
+                          ))}
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                  </CardContent>
-                </Card>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {mode === "indexed" ? "Each line is scaled from 0 (its lowest in this range) to 100 (its highest), so different units can share one chart. Hover for real values." : hasR ? "Series in a different unit from the first use the right axis." : "All series share one axis."} Dashed lines are projections.
+                    </p>
 
-                <div className="mt-5 rounded-lg border p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">Source: {selectedSeries.sourceName}</p>
-                    {isPredicted(selectedLatest) && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">{isProjection(selectedLatest) ? "Latest value is a projection" : "Latest value is marked predicted by source"}</span>}
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">Indicator code {selectedSeries.code} · source ID {selectedSeries.sourceId}</p>
-                  {selectedLatest?.obs_status && <p className="mt-2 text-xs text-muted-foreground">Source observation status: {selectedLatest.obs_status}</p>}
-                  {selectedSeries.sourceUrl && <a href={selectedSeries.sourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 font-medium text-accent hover:underline">Open source series <ExternalLink className="h-3.5 w-3.5" /></a>}
-                </div>
-              </>
-            ) : null}
-          </SheetContent>
-        </Sheet>
-
-        {compareCodes.length > 0 && !comparisonOpen && (
-          <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-fit items-center gap-3 rounded-full border bg-background px-4 py-2 shadow-lg">
-            <span className="inline-flex items-center gap-2 text-sm"><Check className="h-4 w-4 text-accent" />{compareCodes.length} selected</span>
-              <Button size="sm" onClick={() => { setSelectedSeriesKey(""); setComparisonOpen(true); }} disabled={compareCodes.length < 2}>Compare</Button>
-            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setCompareCodes([])} aria-label="Clear comparison selection"><X className="h-4 w-4" /></Button>
-          </div>
+                    <div className="mt-8 overflow-x-auto">
+                      <table className="w-full min-w-[640px] border-y border-border text-sm">
+                        <caption className="sr-only">Selected series</caption>
+                        <thead><tr className="text-left text-xs text-muted-foreground">
+                          {["Series", "Source", "Latest", "Change", "High", "Low", "Source updated"].map((h) => <th key={h} className="py-3 pr-4 font-medium">{h}</th>)}
+                        </tr></thead>
+                        <tbody className="divide-y divide-border">
+                          {selected.map((s, i) => {
+                            const o = observed(s), l = o[o.length - 1], c = change(s), v = o.map((r) => r.value);
+                            return (
+                              <tr key={s.key}>
+                                <td className="py-3 pr-4"><span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: COLORS[i] }} aria-hidden="true" /><span className="font-medium">{s.name}</span><span className="ml-2 text-xs text-muted-foreground">{s.unit}</span></td>
+                                <td className="py-3 pr-4">{s.source}</td>
+                                <td className="py-3 pr-4 font-mono tabular-nums">{l ? `${fmt(l.value, s.unit)} (${l.period})` : "n/a"}</td>
+                                <td className="py-3 pr-4 font-mono tabular-nums">{c ? c.text : "n/a"}</td>
+                                <td className="py-3 pr-4 font-mono tabular-nums">{v.length ? fmt(Math.max(...v), s.unit) : "n/a"}</td>
+                                <td className="py-3 pr-4 font-mono tabular-nums">{v.length ? fmt(Math.min(...v), s.unit) : "n/a"}</td>
+                                <td className="py-3 pr-4 font-mono text-xs">{s.updated ? new Date(s.updated).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "n/a"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-6 text-sm font-semibold text-primary">
+                      <button onClick={csv} className={`inline-flex items-center gap-2 underline decoration-gold decoration-2 underline-offset-4 hover:gap-3 ${EASE}`}><Download className="h-4 w-4" aria-hidden="true" />Download CSV</button>
+                      <button onClick={share} className={`inline-flex items-center gap-2 underline decoration-gold decoration-2 underline-offset-4 hover:gap-3 ${EASE}`}><Link2 className="h-4 w-4" aria-hidden="true" />{copied ? "Link copied" : "Copy link to this view"}</button>
+                    </div>
+                  </>
+                )}
+              </section>
+            </div>
+          </>
         )}
-      </section>
+      </div>
     </Layout>
   );
 };
