@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { Menu, X, Search, FileText } from "lucide-react";
+import { Menu, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navLinks = [
@@ -19,17 +19,12 @@ const Navbar = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 bg-primary text-primary-foreground">
       <div className="container-custom">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-hero transition-transform group-hover:scale-105">
-              <FileText className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <span className="font-display text-xl font-bold text-foreground">
-              Civic<span className="text-accent">Lens</span>
-            </span>
+          <Link to="/" className="font-display text-2xl font-extrabold tracking-tight text-primary-foreground">
+            Civic<span className="text-gold">Lens</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -38,10 +33,11 @@ const Navbar = () => {
               <Link
                 key={link.path}
                 to={link.path}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                aria-current={isActive(link.path) ? "page" : undefined}
+                className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(link.path)
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    ? "border-gold text-primary-foreground"
+                    : "border-transparent text-primary-foreground/80 hover:text-primary-foreground"
                 }`}
               >
                 {link.name}
@@ -51,32 +47,34 @@ const Navbar = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/ai-search">
+            <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" asChild>
+              <Link to="/ai-search" aria-label="Search">
                 <Search className="h-5 w-5" />
               </Link>
             </Button>
-            <Button variant="accent" size="sm" asChild>
+            <Button variant="gold" size="sm" asChild>
               <Link to="/subscriptions">Subscribe</Link>
             </Button>
           </div>
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
+            className="md:hidden p-2 rounded-lg hover:bg-primary-foreground/10 transition-colors"
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? (
-              <X className="h-6 w-6 text-foreground" />
+              <X className="h-6 w-6 text-primary-foreground" />
             ) : (
-              <Menu className="h-6 w-6 text-foreground" />
+              <Menu className="h-6 w-6 text-primary-foreground" />
             )}
           </button>
         </div>
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border animate-fade-in">
+          <div className="md:hidden py-4 border-t border-primary-foreground/10 animate-fade-in">
             <div className="flex flex-col gap-1">
               {navLinks.map((link) => (
                 <Link
@@ -85,15 +83,15 @@ const Navbar = () => {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                     isActive(link.path)
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      ? "bg-primary-foreground/10 text-primary-foreground"
+                      : "text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground"
                   }`}
                 >
                   {link.name}
                 </Link>
               ))}
               <div className="mt-4 px-4">
-                <Button variant="accent" className="w-full" asChild>
+                <Button variant="gold" className="w-full" asChild>
                   <Link to="/subscriptions" onClick={() => setMobileMenuOpen(false)}>
                     Subscribe to Updates
                   </Link>

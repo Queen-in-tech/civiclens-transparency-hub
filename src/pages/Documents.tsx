@@ -18,7 +18,7 @@ const Documents = () => {
     searchParams.get("category")
   );
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
