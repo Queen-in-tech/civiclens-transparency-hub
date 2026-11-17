@@ -6,7 +6,6 @@ import SearchBar from "@/components/shared/SearchBar";
 import DocumentCard from "@/components/shared/DocumentCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { categories } from "@/data/mockData";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useDocumentStats } from "@/hooks/useDocumentStats";
 

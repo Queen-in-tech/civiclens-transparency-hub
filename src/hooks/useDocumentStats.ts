@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useDocuments } from "./useDocuments";
-import { categories } from "@/data/mockData";
 
 export const useDocumentStats = () => {
   const { data: documents = [] } = useDocuments();
@@ -10,11 +9,18 @@ export const useDocumentStats = () => {
   const stats = useMemo(() => {
     //  const fields = documents.map(doc => doc.fields);
   // console.log("fields:", fields); 
-    // Calculate actual document counts for each category
-    const categoriesWithCounts = categories.map(category => ({
-      ...category,
-      documentCount: documents.filter(doc => doc.Type === category.id).length
-    }));
+    // Categories are built from the documents themselves: one per Type value,
+    // so new types in the data appear here automatically.
+    const typeCounts = new Map<string, number>();
+    documents.forEach(doc => {
+      const type = doc.Type as string | undefined;
+      if (type && type.trim()) typeCounts.set(type, (typeCounts.get(type) ?? 0) + 1);
+    });
+    const categoriesWithCounts = Array.from(typeCounts, ([id, documentCount]) => ({
+      id,
+      name: id.trim(),
+      documentCount,
+    })).sort((a, b) => b.documentCount - a.documentCount || a.name.localeCompare(b.name));
 
     // Calculate total documents
     const totalDocuments = documents.length;

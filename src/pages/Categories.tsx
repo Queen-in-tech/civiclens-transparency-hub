@@ -1,76 +1,79 @@
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import Layout from "@/components/layout/Layout";
-import CategoryCard from "@/components/shared/CategoryCard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useDocuments } from "@/hooks/useDocuments";
 import { useDocumentStats } from "@/hooks/useDocumentStats";
+
+const EASE = "transition-all duration-200 ease-out";
 
 const Categories = () => {
   const { categoriesWithCounts, totalDocuments, recentDocuments, documentsByYear } = useDocumentStats();
+  const { isLoading, isError, refetch } = useDocuments();
+  const years = Object.keys(documentsByYear).filter((y) => y !== "NaN").length;
 
-  // Calculate additional stats
-  const yearsCovered = Object.keys(documentsByYear).length;
-  const uniqueSources = new Set(categoriesWithCounts.map(cat => cat.name)).size;
+  const facts = [
+    { label: "Documents", value: totalDocuments },
+    { label: "Categories", value: categoriesWithCounts.length },
+    { label: "Years covered", value: years },
+    { label: "Added in the last 30 days", value: recentDocuments },
+  ];
 
   return (
     <Layout>
-      {/* Header */}
-      <section className="bg-gradient-to-br from-primary to-primary/90 py-12 md:py-16">
-        <div className="container-custom text-center max-w-2xl mx-auto">
-          <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-primary-foreground mb-4">
-            Document Categories
+      <div className="container-custom grid gap-12 py-14 md:grid-cols-12">
+        <header className="md:col-span-4">
+          <h1 className="display-condensed font-display text-6xl font-extrabold leading-none tracking-tight md:text-7xl">
+            Categories
           </h1>
-          <p className="text-primary-foreground/80 text-lg">
-            Explore Nigeria's public documents organized by type and source
+          <p className="mt-4 max-w-xs text-muted-foreground">
+            Every type of document in the library. This list builds itself from the documents, so new types appear here on their own.
           </p>
-        </div>
-      </section>
-
-      {/* Categories Grid */}
-      <section className="py-12 md:py-16">
-        <div className="container-custom">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categoriesWithCounts.map((category, index) => (
-              <div
-                key={category.id}
-                className="animate-fade-in-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <CategoryCard category={category} />
+          <dl className="mt-10 divide-y divide-border border-y border-border">
+            {facts.map((f) => (
+              <div key={f.label} className="flex items-baseline justify-between py-3">
+                <dt className="text-sm text-muted-foreground">{f.label}</dt>
+                <dd className="font-mono text-2xl font-medium tabular-nums">{isLoading ? "…" : f.value}</dd>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
+          </dl>
+        </header>
 
-      {/* Stats Section */}
-      <section className="py-12 bg-muted/50">
-        <div className="container-custom">
-          <div className="text-center mb-10">
-            <h2 className="font-display text-2xl font-bold text-foreground mb-2">
-              Document Statistics
-            </h2>
-            <p className="text-muted-foreground">
-              Our growing collection of public documents
-            </p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { label: "Total Documents", value: totalDocuments.toString() },
-              { label: "Categories", value: categoriesWithCounts.length.toString() },
-              { label: "Years Covered", value: yearsCovered.toString() },
-              { label: "Recent (30 days)", value: recentDocuments.toString() },
-            ].map((stat, index) => (
-              <div
-                key={index}
-                className="text-center p-6 rounded-xl bg-card border border-border"
-              >
-                <div className="font-display text-3xl font-bold text-primary mb-1">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        <section className="md:col-span-8" aria-label="All categories">
+          {isLoading && [0, 1, 2, 3].map((i) => <Skeleton key={i} className="mb-px h-24 rounded-none" />)}
+          {isError && (
+            <div className="border-y border-border py-6">
+              <p className="font-medium">We could not load the categories.</p>
+              <button onClick={() => refetch()} className="mt-2 font-semibold text-primary underline decoration-gold decoration-2 underline-offset-4">
+                Try again
+              </button>
+            </div>
+          )}
+          {!isLoading && !isError && categoriesWithCounts.length === 0 && (
+            <p className="border-y border-border py-6 text-muted-foreground">No categories yet. They appear as soon as documents are added.</p>
+          )}
+          {categoriesWithCounts.length > 0 && (
+            <ul className="divide-y divide-border border-y border-border">
+              {categoriesWithCounts.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    to={`/documents?category=${encodeURIComponent(c.id)}`}
+                    className={`group flex items-baseline justify-between gap-4 py-6 hover:pl-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${EASE}`}
+                  >
+                    <span className="font-display text-3xl font-bold tracking-tight group-hover:text-primary md:text-5xl">{c.name}</span>
+                    <span className="flex items-center gap-4 font-mono text-base tabular-nums text-muted-foreground">
+                      {c.documentCount}
+                      <ArrowRight className="h-5 w-5 text-primary opacity-0 group-hover:opacity-100" aria-hidden="true" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </Layout>
   );
-};export default Categories;
+};
+
+export default Categories;

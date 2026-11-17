@@ -145,11 +145,11 @@ const Index = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search, for example 2024 budget"
-              className="min-w-0 flex-1 bg-transparent py-3 font-display text-2xl text-primary-foreground placeholder:text-primary-foreground/55 focus:outline-none"
+              className="min-w-0 flex-1 bg-transparent py-3 font-display text-2xl text-primary-foreground placeholder:text-primary-foreground/70 focus:outline-none"
             />
             <button
               type="submit"
-              className={`inline-flex items-center gap-2 py-3 font-semibold text-gold hover:gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold ${EASE}`}
+              className={`inline-flex items-center gap-2 bg-gold px-5 py-3 font-semibold text-gold-foreground hover:gap-3 hover:bg-gold/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-foreground ${EASE}`}
             >
               Search <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -161,7 +161,7 @@ const Index = () => {
               <Link
                 key={term}
                 to={`/documents?q=${encodeURIComponent(term)}`}
-                className={`py-1 font-medium underline decoration-gold decoration-2 underline-offset-4 hover:text-gold ${EASE}`}
+                className={`py-1 font-medium underline decoration-gold decoration-2 underline-offset-4 ${EASE}`}
               >
                 {term}
               </Link>
@@ -326,7 +326,7 @@ const Index = () => {
               </Button>
               <Link
                 to="/documents"
-                className={`font-semibold underline decoration-gold decoration-2 underline-offset-4 hover:text-gold ${EASE}`}
+                className={`font-semibold underline decoration-gold decoration-2 underline-offset-4 ${EASE}`}
               >
                 Browse documents
               </Link>

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiService, type IndicatorObservation } from "@/data/apiService";
 
-const COLORS = ["#1C2B6B", "#B07A00", "#C2410C", "#0F766E", "#3B82C4", "#6B5B4B"];
+const COLORS = ["#006B3F", "#B07A00", "#1C2B6B", "#C2410C", "#3B82C4", "#6B5B4B"];
 const INK = "#0A0A0C", GRID = "#DAD8D0", MUTED = "#5B5A54";
 const MAX_SERIES = 6;
 const EASE = "transition-all duration-200 ease-out";

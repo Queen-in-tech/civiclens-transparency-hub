@@ -35,7 +35,7 @@ const AdireCloth = ({ className }: { className?: string }) => {
         {/* Uneven dye: darker patches in the indigo */}
         <filter id={id("mottle")} x="0" y="0" width="100%" height="100%">
           <feTurbulence type="fractalNoise" baseFrequency=".008 .02" numOctaves="3" seed="9" />
-          <feColorMatrix values="0 0 0 0 .06 0 0 0 0 .09 0 0 0 0 .28 1.4 0 0 0 -.35" />
+          <feColorMatrix values="0 0 0 0 0 0 0 0 0 .1 0 0 0 0 .05 1.4 0 0 0 -.35" />
         </filter>
         <linearGradient id={id("fade")} x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
@@ -105,7 +105,7 @@ const AdireCloth = ({ className }: { className?: string }) => {
         <g id={id("m8")}>
           {frame}
           <path {...stroke} d="M80,16 V144 M16,80 H144 M34,34 L126,126 M126,34 L34,126" />
-          <circle cx="80" cy="80" r="14" fill="#1C2B6B" stroke={INK} strokeWidth="6" />
+          <circle cx="80" cy="80" r="14" fill="#006B3F" stroke={INK} strokeWidth="6" />
         </g>
       </defs>
 

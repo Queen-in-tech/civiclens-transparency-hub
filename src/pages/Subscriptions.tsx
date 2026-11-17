@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Bell, Check, Mail, Loader2 } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { categories } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
