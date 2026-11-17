@@ -155,3 +155,15 @@
 @media (prefers-reduced-motion: reduce) {
   .adire-cloth { animation: none; }
 }
+
+/* Styles for the AI summary, which arrives as HTML */
+.summary-html { line-height: 1.7; }
+.summary-html p, .summary-html ul, .summary-html ol { margin-bottom: 0.9rem; }
+.summary-html ul { list-style: disc; padding-left: 1.25rem; }
+.summary-html ol { list-style: decimal; padding-left: 1.25rem; }
+.summary-html h1, .summary-html h2, .summary-html h3, .summary-html h4 {
+  font-family: "Bricolage Grotesque", "Public Sans", sans-serif;
+  font-weight: 700; margin: 1.4rem 0 0.5rem; line-height: 1.2;
+}
+.summary-html strong { font-weight: 600; }
+.summary-html a { text-decoration: underline; text-underline-offset: 4px; color: hsl(var(--primary)); }
