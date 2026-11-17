@@ -1,34 +1,28 @@
-import { Link } from "react-router-dom";
-import { Home, FileSearch } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Link, useLocation } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
+import { Button } from "@/components/ui/button";
 
 const NotFound = () => {
+  const { pathname } = useLocation();
+
   return (
     <Layout>
-      <div className="container-custom py-20 md:py-32 text-center">
-        <div className="max-w-md mx-auto">
-          <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-muted mb-6">
-            <FileSearch className="h-10 w-10 text-muted-foreground" />
-          </div>
-          <h1 className="font-display text-3xl font-bold text-foreground mb-4">
-            Page Not Found
+      <div className="container-custom grid gap-10 py-20 md:grid-cols-12 md:py-28">
+        <p className="font-mono text-7xl font-medium leading-none text-primary md:col-span-4 md:text-9xl" aria-hidden="true">404</p>
+        <div className="md:col-span-8">
+          <h1 className="display-condensed font-display text-5xl font-extrabold leading-none tracking-tight md:text-7xl">
+            This page does not exist.
           </h1>
-          <p className="text-muted-foreground mb-8">
-            The page you're looking for doesn't exist or has been moved. Let's get you back on track.
+          <p className="mt-5 max-w-lg text-lg text-muted-foreground">
+            We could not find <span className="break-all font-mono text-foreground">{pathname}</span>. It may have moved, or the link may have a typo.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button variant="default" asChild>
-              <Link to="/">
-                <Home className="h-4 w-4 mr-2" />
-                Go Home
-              </Link>
+          <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3">
+            <Button variant="gold" size="lg" asChild>
+              <Link to="/documents">Browse documents</Link>
             </Button>
-            <Button variant="outline" asChild>
-              <Link to="/documents">
-                Browse Documents
-              </Link>
-            </Button>
+            <Link to="/" className="font-semibold text-primary underline decoration-gold decoration-2 underline-offset-4">
+              Go to the home page
+            </Link>
           </div>
         </div>
       </div>
