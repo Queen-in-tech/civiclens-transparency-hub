@@ -1,268 +1,149 @@
-import { useParams, Link } from "react-router-dom";
-import {
-  FileText,
-  Download,
-  ExternalLink,
-  Calendar,
-  HardDrive,
-  Building2,
-  Tag,
-  ArrowLeft,
-  Sparkles,
-  MessageSquare,
-} from "lucide-react";
+import { useMemo } from "react";
+import { Link, useParams } from "react-router-dom";
+import DOMPurify from "dompurify";
+import { ArrowRight } from "lucide-react";
 import Layout from "@/components/layout/Layout";
-import DocumentCard from "@/components/shared/DocumentCard";
 import DocumentChat from "@/components/shared/DocumentChat";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDocument } from "@/hooks/useDocuments";
+import { useDocument, useDocuments } from "@/hooks/useDocuments";
 
-interface Document {
-  id: string;
-  Title: string;
-  createdTime: string;
-  fileSize: string;
-  year: number;
-  Source?: string;
-  Type: string;
-  "Date Published": string;
-  "Document URL": string;
-  "AI summary": string;
+type Doc = { [key: string]: string };
+const EASE = "transition-all duration-200 ease-out";
+const link = `font-semibold text-primary underline decoration-gold decoration-2 underline-offset-4 ${EASE}`;
 
-}
+const formatDate = (v: string) => {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+};
 
 const DocumentDetail = () => {
   const { id } = useParams();
+  const { data, isLoading, isError, refetch } = useDocument(id || "");
+  const { data: all = [] } = useDocuments();
+  const doc = (Array.isArray(data) ? data[0] : data) as Doc | undefined;
 
-  // Use React Query for document fetching with caching
-  const { data: documentData, isLoading } = useDocument(id || "");
+  // The AI summary arrives as HTML, so it is cleaned before it is shown.
+  const summary = useMemo(() => {
+    const raw = (doc?.["AI summary"] ?? "").replace(/```[a-z]*\n?/g, "").replace(/```/g, "");
+    return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+  }, [doc]);
 
-  // Handle API returning array vs single object
-  const document = Array.isArray(documentData) ? documentData[0] : documentData;
-
+  const related = useMemo(
+    () =>
+      (all as Doc[])
+        .filter((d) => doc && d.Type === doc.Type && d.id !== doc.id)
+        .sort((a, b) => new Date(b["Date Published"]).getTime() - new Date(a["Date Published"]).getTime())
+        .slice(0, 4),
+    [all, doc],
+  );
 
   if (isLoading) {
     return (
       <Layout>
-        <section className="bg-card border-b border-border py-4">
-          <div className="container-custom">
-            <Skeleton className="h-4 w-32" />
-          </div>
-        </section>
-        <section className="py-8 md:py-12">
-          <div className="container-custom">
-            <div className="max-w-4xl">
-              <Skeleton className="h-6 w-24 mb-4" />
-              <Skeleton className="h-8 w-full mb-2" />
-              <Skeleton className="h-8 w-3/4 mb-6" />
-              <div className="flex flex-wrap gap-6 mb-8">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-              <div className="flex gap-3">
-                <Skeleton className="h-10 w-32" />
-                <Skeleton className="h-10 w-28" />
-              </div>
-            </div>
-          </div>
-        </section>
-        <section className="py-8 bg-muted/50">
-          <div className="container-custom">
-            <div className="max-w-4xl">
-              <div className="rounded-xl border border-border bg-card p-6 md:p-8">
-                <Skeleton className="h-6 w-40 mb-4" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-3/4" />
-              </div>
-            </div>
-          </div>
-        </section>
-      </Layout>
-    );
-  }
-
-  if (!document) {
-    return (
-      <Layout>
-        <div className="container-custom py-20 text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Document Not Found</h1>
-          <Button asChild>
-            <Link to="/documents">Back to Documents</Link>
-          </Button>
+        <div className="container-custom py-12">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="mt-6 h-16 w-3/4 rounded-none" />
+          <Skeleton className="mt-4 h-4 w-1/2" />
+          <Skeleton className="mt-10 h-64 rounded-none" />
         </div>
       </Layout>
     );
   }
 
-  // const relatedDocuments = documents
-  //   .filter((d) => d.category === document.category && d.id !== document.id)
-  //   .slice(0, 3);
+  if (isError || !doc) {
+    return (
+      <Layout>
+        <div className="container-custom py-20">
+          <h1 className="display-condensed font-display text-5xl font-extrabold leading-none tracking-tight">
+            {isError ? "We could not load this document." : "We could not find this document."}
+          </h1>
+          <p className="mt-3 text-muted-foreground">
+            {isError ? "Check your connection and try again." : "It may have been moved or removed."}
+          </p>
+          <div className="mt-6 flex items-center gap-6">
+            {isError && <Button onClick={() => refetch()}>Try again</Button>}
+            <Link to="/documents" className={link}>Back to documents</Link>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const url = doc["Document URL"];
+  const meta = [doc.Source, doc.Type, formatDate(doc["Date Published"]), doc.fileSize].filter(Boolean).join(", ");
 
   return (
     <Layout>
-      {/* Breadcrumb */}
-      <section className="bg-card border-b border-border py-4">
-        <div className="container-custom">
-          <Link
-            to="/documents"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Documents
-          </Link>
-        </div>
-      </section>
+      <div className="container-custom py-10">
+        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+          <Link to="/documents" className="underline underline-offset-4 hover:text-primary">Documents</Link>
+          {doc.Type && (
+            <>
+              <span aria-hidden="true"> / </span>
+              <Link to={`/documents?category=${encodeURIComponent(doc.Type)}`} className="underline underline-offset-4 hover:text-primary">{doc.Type}</Link>
+            </>
+          )}
+        </nav>
 
-      {/* Document Header */}
-      <section className="py-8 md:py-12">
-        <div className="container-custom">
-          <div className="max-w-4xl">
-            <span className="inline-flex items-center rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent mb-4">
-              <Tag className="h-3 w-3 mr-1" />
-              {document.Type} - {document.Source}
-            </span>
-            <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-6">
-              {document.Title}
-            </h1>
-
-            {/* Metadata */}
-            <div className="flex flex-wrap gap-6 text-sm text-muted-foreground mb-8">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <span>{document["Date Published"]}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <HardDrive className="h-4 w-4" />
-                <span>{document.fileSize}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                <span>{document.Type}</span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3">
-              <Button variant="hero" size="lg">
-                <Download className="h-4 w-4 mr-2" />
-                 <a
-                  href={document["Document URL"]}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="inline-flex items-center"
-                > Download PDF</a>
+        <header className="mt-6 max-w-4xl">
+          <h1 className="display-condensed font-display text-4xl font-extrabold leading-[0.98] tracking-tight md:text-6xl">{doc.Title}</h1>
+          <p className="mt-4 font-mono text-sm text-muted-foreground">{meta}</p>
+          {url && (
+            <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3">
+              <Button variant="gold" size="lg" asChild>
+                <a href={url} target="_blank" rel="noopener noreferrer" download>Download</a>
               </Button>
-              <Button variant="outline" size="lg">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                View Source
-              </Button>
+              <a href={url} target="_blank" rel="noopener noreferrer" className={link}>Open the original</a>
             </div>
+          )}
+        </header>
+
+        <div className="mt-12 grid gap-x-12 gap-y-12 md:grid-cols-12">
+          <section aria-labelledby="summary-heading" className="md:col-span-7 md:row-start-1">
+            <h2 id="summary-heading" className="display-condensed font-display text-3xl font-extrabold leading-none tracking-tight">Summary</h2>
+            <div className="summary-html mt-4 max-w-prose" dangerouslySetInnerHTML={{ __html: summary || "<p>No summary is available for this document yet.</p>" }} />
+            <p className="mt-4 text-sm text-muted-foreground">
+              This summary was written by AI for quick reference. For anything official, check the original document.
+            </p>
+          </section>
+
+          <div className="md:sticky md:top-24 md:col-span-5 md:col-start-8 md:row-span-2 md:row-start-1 md:h-[calc(100vh-8rem)] md:self-start">
+            <DocumentChat documentUrl={url || ""} documentTitle={doc.Title} documentType={doc.Type || ""} id={doc.id || ""} />
           </div>
-        </div>
-      </section>
 
-      {/* AI Summary */}
-      <section className="py-8 bg-muted/50">
-        <div className="container-custom">
-          <div className="max-w-4xl">
-            <div className="rounded-xl border border-border bg-card p-6 md:p-8">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="h-5 w-5 text-accent" />
-                <h2 className="font-display font-semibold text-foreground">AI-Generated Summary</h2>
-              </div>
-              <div className="prose prose-sm max-w-none text-muted-foreground">
-               {(() => {
-                 const cleanedHtml = (document["AI summary"] || "")
-                   .replace(/```[a-z]*\n?/g, "") // removes ``` or ```html
-                   .replace(/```/g, "");         // removes any trailing ```
-
-                 return (
-                   <div
-                     className="prose prose-sm max-w-none text-muted-foreground"
-                     dangerouslySetInnerHTML={{
-                       __html: cleanedHtml || "<p>No summary available.</p>",
-                     }}
-                   />
-                 );
-               })()}
-
-               
-                <p className="mt-4 text-xs text-muted-foreground italic">
-                  Note: This summary is AI-generated for quick reference. Please refer to the original document for official information.
+          <section aria-labelledby="preview-heading" className="md:col-span-7 md:row-start-2">
+            <h2 id="preview-heading" className="display-condensed font-display text-3xl font-extrabold leading-none tracking-tight">The document</h2>
+            {url ? (
+              <>
+                <iframe src={url} title={doc.Title} className="mt-4 h-[75vh] w-full border border-border bg-card" />
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Blank preview? Some sites do not allow it. <a href={url} target="_blank" rel="noopener noreferrer" className={link}>Open the document</a> instead.
                 </p>
-              </div>
-            </div>
-          </div>
+              </>
+            ) : (
+              <p className="mt-4 border-y border-border py-10 text-muted-foreground">No file is linked to this document.</p>
+            )}
+          </section>
         </div>
-      </section>
 
-      {/* Document Preview & Chat Tabs */}
-      <section className="py-8 md:py-12">
-        <div className="container-custom">
-          <div className="max-w-4xl">
-            <Tabs defaultValue="preview" className="w-full">
-              <TabsList className="mb-6">
-                <TabsTrigger value="preview" className="gap-2">
-                  <FileText className="h-4 w-4" />
-                  Document Preview
-                </TabsTrigger>
-                <TabsTrigger value="chat" className="gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  Discuss with AI
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="preview">
-                <div className="aspect-[4/5] rounded-xl border border-border bg-card flex items-center justify-center">
-                  {document["Document URL"] ? (
-                    <iframe
-                      src={document["Document URL"]}
-                      className="w-full h-full rounded-xl"
-                      title={document.Title}
-                    />
-                  ) : (
-                    <div className="text-center text-muted-foreground">
-                      <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                      <p>Document preview will be displayed here</p>
-                      <p className="text-sm">Click download to access the full document</p>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="chat">
-                <DocumentChat 
-                  documentUrl={document["Document URL"] || ""} 
-                  documentTitle={document.Title}
-                  documentType={document.Type || ""}
-                  id={document.id || ""}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-      </section>
-
-      {/* Related Documents */}
-      {/* {relatedDocuments.length > 0 && (
-        <section className="py-12 bg-muted/50">
-          <div className="container-custom">
-            <h2 className="font-display text-xl font-semibold text-foreground mb-6">
-              Related Documents
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {relatedDocuments.map((doc) => (
-                <DocumentCard key={doc.id} document={doc} />
+        {related.length > 0 && (
+          <section aria-labelledby="related-heading" className="mt-20 grid gap-8 md:grid-cols-12">
+            <h2 id="related-heading" className="display-condensed font-display text-3xl font-extrabold leading-none tracking-tight md:col-span-4">More in {doc.Type}</h2>
+            <ul className="divide-y divide-border border-y border-border md:col-span-8">
+              {related.map((d) => (
+                <li key={d.id}>
+                  <Link to={`/documents/${d.id}`} className={`grid grid-cols-[4.5rem_1fr_auto] items-baseline gap-x-6 py-5 hover:pl-3 ${EASE}`}>
+                    <span className="font-mono text-lg tabular-nums text-primary">{new Date(d["Date Published"]).getFullYear() || ""}</span>
+                    <span className="line-clamp-2 font-display text-lg font-semibold">{d.Title}</span>
+                    <ArrowRight className="h-4 w-4 text-primary" aria-hidden="true" />
+                  </Link>
+                </li>
               ))}
-            </div>
-          </div>
-        </section>
-      )} */}
+            </ul>
+          </section>
+        )}
+      </div>
     </Layout>
   );
 };

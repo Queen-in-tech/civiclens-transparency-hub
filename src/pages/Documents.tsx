@@ -1,403 +1,243 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Grid, List, Filter, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, X } from "lucide-react";
 import Layout from "@/components/layout/Layout";
-import SearchBar from "@/components/shared/SearchBar";
-import DocumentCard from "@/components/shared/DocumentCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { categories } from "@/data/mockData";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useDocumentStats } from "@/hooks/useDocumentStats";
 
+type Doc = { [key: string]: string };
+type Sort = "newest" | "oldest" | "title";
+
+const PER_PAGE = 12;
+const DAY = 86_400_000;
+const EASE = "transition-all duration-200 ease-out";
+const link = `font-semibold text-primary underline decoration-gold decoration-2 underline-offset-4 ${EASE}`;
+
+const yearOf = (d: Doc) => new Date(d["Date Published"]).getFullYear();
+const formatDate = (v: string) => {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+};
+
+const pageList = (page: number, total: number) => {
+  const out: (number | "gap")[] = [1];
+  const start = Math.max(2, page - 2), end = Math.min(total - 1, page + 2);
+  if (start > 2) out.push("gap");
+  for (let i = start; i <= end; i++) out.push(i);
+  if (end < total - 1) out.push("gap");
+  if (total > 1) out.push(total);
+  return out;
+};
+
 const Documents = () => {
-  const [searchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    searchParams.get("category")
-  );
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
-
-  // Use React Query for global document state
-  const { data: documents = [], isLoading } = useDocuments();
+  const [params, setParams] = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [allYears, setAllYears] = useState(false);
+  const { data = [], isLoading, isError, refetch } = useDocuments();
   const { categoriesWithCounts } = useDocumentStats();
+  const documents = data as Doc[];
 
-  const years = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
-  const [showAllYears, setShowAllYears] = useState(false);
-  const displayedYears = showAllYears ? years : years.slice(0, 5);
+  const q = params.get("q") ?? "";
+  const category = params.get("category");
+  const year = params.get("year") ? Number(params.get("year")) : null;
+  const source = params.get("source");
+  const sort = (params.get("sort") as Sort) ?? "newest";
+  const page = Math.max(1, Number(params.get("page")) || 1);
 
-  console.log("documents:", documents); // Debugging line to check the fetched documents
-
-  const filteredDocuments = documents.filter((doc) => {
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const titleMatch = doc.Title?.toLowerCase().includes(query);
-      const typeMatch = doc.Type?.toLowerCase().includes(query);
-      const sourceMatch = doc.Source?.toLowerCase().includes(query);
-      if (!titleMatch && !typeMatch && !sourceMatch) {
-        return false;
-      }
-    }
-
-    // Category filter
-    if (selectedCategory?.toLowerCase().replace(" ", "-") && doc?.Type?.toLowerCase().replace(" ", "-") !== selectedCategory) {
-      const categoryMatch = categoriesWithCounts.find(c => c.id === selectedCategory);
-      if (categoryMatch && doc.Type !== categoryMatch.id) {
-        return false;
-      }
-    }
-
-    // Year filter
-    if (selectedYear && new Date(doc["Date Published"]).getFullYear() !== selectedYear) return false;
-
-    return true;
-  });
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedDocuments = filteredDocuments.slice(startIndex, endIndex);
-
-  const clearFilters = () => {
-    setSelectedCategory(null);
-    setSelectedYear(null);
-    setSearchQuery("");
-    setCurrentPage(1); 
+  // Changing any filter goes back to page 1; everything lives in the URL so views can be shared.
+  const set = (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    Object.entries(changes).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
+    if (!("page" in changes)) next.delete("page");
+    setParams(next, { replace: true });
   };
 
-  const hasActiveFilters = selectedCategory || selectedYear || searchQuery;
+  // Years and sources come from the documents, nothing is hard-coded
+  const years = useMemo(() => {
+    const m = new Map<number, number>();
+    documents.forEach((d) => { const y = yearOf(d); if (!Number.isNaN(y)) m.set(y, (m.get(y) ?? 0) + 1); });
+    return Array.from(m, ([y, n]) => ({ y, n })).sort((a, b) => b.y - a.y);
+  }, [documents]);
+  const sources = useMemo(() => {
+    const m = new Map<string, number>();
+    documents.forEach((d) => d.Source && m.set(d.Source, (m.get(d.Source) ?? 0) + 1));
+    return Array.from(m, ([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  }, [documents]);
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const results = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    const list = documents.filter((d) => {
+      if (term && ![d.Title, d.Type, d.Source].some((f) => f?.toLowerCase().includes(term))) return false;
+      if (category && d.Type !== category) return false;
+      if (source && d.Source !== source) return false;
+      if (year && yearOf(d) !== year) return false;
+      return true;
+    });
+    const time = (d: Doc) => new Date(d["Date Published"]).getTime() || 0;
+    return list.sort((a, b) => sort === "title" ? (a.Title ?? "").localeCompare(b.Title ?? "") : sort === "oldest" ? time(a) - time(b) : time(b) - time(a));
+  }, [documents, q, category, source, year, sort]);
 
-  const handlePrevious = () => {
-    if (currentPage > 1) {
-      handlePageChange(currentPage - 1);
-    }
-  };
+  const totalPages = Math.max(1, Math.ceil(results.length / PER_PAGE));
+  const current = Math.min(page, totalPages);
+  const shown = results.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+  const active = [q && `“${q}”`, category, source, year && String(year)].filter(Boolean) as string[];
+  const go = (p: number) => { set({ page: p === 1 ? null : String(p) }); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
-  const handleNext = () => {
-    if (currentPage < totalPages) {
-      handlePageChange(currentPage + 1);
-    }
-  };
+  const opt = (on: boolean) => `flex w-full items-baseline justify-between gap-3 border-l-2 py-1.5 pl-3 text-left text-sm hover:text-primary ${EASE} ${on ? "border-gold font-semibold text-foreground" : "border-transparent text-muted-foreground"}`;
+  const group = (title: string, children: React.ReactNode) => (
+    <section className="mb-8">
+      <h2 className="mb-2 font-display text-lg font-bold">{title}</h2>
+      {children}
+    </section>
+  );
 
-  // Generate truncated page numbers for pagination
-  const getPageNumbers = () => {
-    const pages = [];
-    const delta = 2; // Number of pages to show around current page
-
-    // Always show first page
-    pages.push(1);
-
-    // Calculate range around current page
-    const rangeStart = Math.max(2, currentPage - delta);
-    const rangeEnd = Math.min(totalPages - 1, currentPage + delta);
-
-    // Add ellipsis after first page if needed
-    if (rangeStart > 2) {
-      pages.push('...');
-    }
-
-    // Add pages in range
-    for (let i = rangeStart; i <= rangeEnd; i++) {
-      if (!pages.includes(i)) {
-        pages.push(i);
-      }
-    }
-
-    // Add ellipsis before last page if needed
-    if (rangeEnd < totalPages - 1) {
-      pages.push('...');
-    }
-
-    // Always show last page (if more than 1 page)
-    if (totalPages > 1) {
-      pages.push(totalPages);
-    }
-
-    return pages;
-  };
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedCategory, selectedYear, searchQuery]);
-
+  const filters = (
+    <div>
+      {group("Category", (
+        <ul>
+          <li><button className={opt(!category)} aria-pressed={!category} onClick={() => set({ category: null })}>All categories</button></li>
+          {categoriesWithCounts.map((c) => (
+            <li key={c.id}>
+              <button className={opt(category === c.id)} aria-pressed={category === c.id} onClick={() => set({ category: category === c.id ? null : c.id })}>
+                <span>{c.name}</span><span className="font-mono text-xs tabular-nums">{c.documentCount}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ))}
+      {group("Year", (
+        <ul>
+          {(allYears ? years : years.slice(0, 6)).map(({ y, n }) => (
+            <li key={y}>
+              <button className={opt(year === y)} aria-pressed={year === y} onClick={() => set({ year: year === y ? null : String(y) })}>
+                <span className="font-mono tabular-nums">{y}</span><span className="font-mono text-xs tabular-nums">{n}</span>
+              </button>
+            </li>
+          ))}
+          {years.length > 6 && (
+            <li><button onClick={() => setAllYears((v) => !v)} className={`mt-2 pl-3 text-sm ${link}`}>{allYears ? "Show fewer years" : `Show all ${years.length} years`}</button></li>
+          )}
+        </ul>
+      ))}
+      {sources.length > 1 && group("Source", (
+        <ul>
+          {sources.slice(0, 10).map(({ name, n }) => (
+            <li key={name}>
+              <button className={opt(source === name)} aria-pressed={source === name} onClick={() => set({ source: source === name ? null : name })}>
+                <span>{name}</span><span className="font-mono text-xs tabular-nums">{n}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  );
 
   return (
     <Layout>
-      {/* Header */}
-      <section className="bg-card border-b border-border py-8">
-        <div className="container-custom">
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-2">
-            Document Library
-          </h1>
-          <p className="text-muted-foreground mb-6">
-            Browse and download public documents
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <SearchBar
-                placeholder="Search by title, keyword, or year..."
-                onSearch={setSearchQuery}
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={showFilters ? "default" : "outline"}
-                onClick={() => setShowFilters(!showFilters)}
-                className="md:hidden"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-              </Button>
-              <div className="flex border border-border rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2.5 transition-colors ${
-                    viewMode === "grid"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card text-muted-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <Grid className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-2.5 transition-colors ${
-                    viewMode === "list"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card text-muted-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <List className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+      <div className="container-custom py-12">
+        <header className="grid gap-8 md:grid-cols-12 md:items-end">
+          <div className="md:col-span-5">
+            <h1 className="display-condensed font-display text-6xl font-extrabold leading-none tracking-tight md:text-7xl">Documents</h1>
+            <p className="mt-3 text-muted-foreground">Budgets, circulars and publications. Each one links to its official source.</p>
           </div>
-        </div>
-      </section>
+          <form role="search" onSubmit={(e) => e.preventDefault()} className={`md:col-span-7 flex items-end border-b-2 border-border focus-within:border-gold ${EASE}`}>
+            <label htmlFor="doc-search" className="sr-only">Search documents</label>
+            <input id="doc-search" type="search" defaultValue={q} key={q} placeholder="Search by title, type or source"
+              onChange={(e) => set({ q: e.target.value.trim() ? e.target.value : null })}
+              className="min-w-0 flex-1 bg-transparent py-3 font-display text-2xl placeholder:text-muted-foreground focus:outline-none" />
+          </form>
+        </header>
 
-      {/* Content */}
-      <section className="py-8">
-        <div className="container-custom">
-          <div className="flex gap-8">
-            {/* Filters Sidebar */}
-            <aside
-              className={`${
-                showFilters ? "fixed inset-0 z-50 bg-background p-6" : "hidden"
-              } md:block md:static md:w-64 shrink-0`}
-            >
-              <div className="flex items-center justify-between mb-6 md:mb-4">
-                <h2 className="font-display font-semibold text-foreground">Filters</h2>
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="md:hidden p-2 hover:bg-secondary rounded-lg"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+        <div className="mt-10 grid gap-10 md:grid-cols-12">
+          <aside className="md:col-span-3" aria-label="Filters">
+            <button className={`md:hidden ${link}`} aria-expanded={filtersOpen} onClick={() => setFiltersOpen((v) => !v)}>
+              {filtersOpen ? "Hide filters" : "Show filters"}
+            </button>
+            <div className={`${filtersOpen ? "mt-6 block" : "hidden"} md:block`}>{filters}</div>
+          </aside>
+
+          <section className="md:col-span-9" aria-label="Results">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
+              <p className="font-mono text-sm text-muted-foreground" aria-live="polite">
+                {isLoading ? "Loading" : `${results.length} of ${documents.length} documents`}
+              </p>
+              <div className="flex items-center gap-4">
+                {active.length > 0 && (
+                  <button onClick={() => setParams({}, { replace: true })} className={`inline-flex items-center gap-1 text-sm ${link}`}>
+                    <X className="h-4 w-4" aria-hidden="true" />Clear {active.join(", ")}
+                  </button>
+                )}
+                <label htmlFor="sort" className="sr-only">Sort by</label>
+                <select id="sort" value={sort} onChange={(e) => set({ sort: e.target.value === "newest" ? null : e.target.value })}
+                  className="border-b-2 border-border bg-transparent py-1 text-sm font-medium focus:border-gold focus:outline-none">
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="title">Title A to Z</option>
+                </select>
               </div>
-
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-primary hover:underline mb-6"
-                >
-                  Clear all filters
-                </button>
-              )}
-
-              {/* Category Filter */}
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-foreground mb-3">Category</h3>
-                <div className="space-y-2">
-                  {categoriesWithCounts.map((category) => (
-                    <label
-                      key={category.id}
-                      className="flex items-center gap-2 cursor-pointer group"
-                    >
-                      <input
-                        type="radio"
-                        name="category"
-                        checked={selectedCategory === category.id}
-                        onChange={() =>
-                          setSelectedCategory(
-                            selectedCategory === category.id ? null : category.id
-                          )
-                        }
-                        className="w-4 h-4 text-primary border-border focus:ring-primary"
-                      />
-                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                        {category.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        ({category.documentCount})
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Year Filter */}
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-foreground mb-3">Year</h3>
-                <div className="space-y-2">
-                  {displayedYears.map((year) => (
-                    <label
-                      key={year}
-                      className="flex items-center gap-2 cursor-pointer group"
-                    >
-                      <input
-                        type="radio"
-                        name="year"
-                        checked={selectedYear === year}
-                        onChange={() =>
-                          setSelectedYear(selectedYear === year ? null : year)
-                        }
-                        className="w-4 h-4 text-primary border-border focus:ring-primary"
-                      />
-                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                        {year}
-                      </span>
-                    </label>
-                  ))}
-                  {years.length > 5 && (
-                    <button
-                      onClick={() => setShowAllYears(!showAllYears)}
-                      className="text-sm text-primary hover:underline mt-2 ml-6"
-                    >
-                      {showAllYears ? 'Show less' : `Show ${years.length - 5} more years`}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                variant="accent"
-                className="w-full md:hidden"
-                onClick={() => setShowFilters(false)}
-              >
-                Apply Filters
-              </Button>
-            </aside>
-
-            {/* Documents Grid */}
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-6">
-                <p className="text-sm text-muted-foreground">
-                  {isLoading
-                    ? "Loading documents..."
-                    : `Showing ${startIndex + 1}-${Math.min(endIndex, filteredDocuments.length)} of ${filteredDocuments.length} documents`
-                  }
-                </p>
-              </div>
-
-              {isLoading ? (
-                <div
-                  className={
-                    viewMode === "grid"
-                      ? "grid grid-cols-1 lg:grid-cols-2 gap-5"
-                      : "space-y-4"
-                  }
-                >
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <div key={index} className="rounded-lg border border-border bg-card p-6">
-                      <Skeleton className="h-6 w-3/4 mb-2" />
-                      <Skeleton className="h-4 w-1/2 mb-4" />
-                      <Skeleton className="h-4 w-full mb-2" />
-                      <Skeleton className="h-4 w-2/3 mb-4" />
-                      <div className="flex gap-2">
-                        <Skeleton className="h-6 w-16" />
-                        <Skeleton className="h-6 w-20" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredDocuments.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground mb-4">
-                    No documents found matching your filters.
-                  </p>
-                  <Button variant="outline" onClick={clearFilters}>
-                    Clear Filters
-                  </Button>
-                </div>
-              ) : (
-                <div
-                  className={
-                    viewMode === "grid"
-                      ? "grid grid-cols-1 lg:grid-cols-2 gap-5"
-                      : "space-y-4"
-                  }
-                >
-                  {paginatedDocuments.map((doc) => (
-                    <DocumentCard key={doc.id} document={doc} />
-                  ))}
-                </div>
-              )}
-
-              {/* Pagination */}
-              {!isLoading && filteredDocuments.length > itemsPerPage && (
-                <div className="mt-10 flex justify-center">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePrevious}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex gap-1">
-                      {getPageNumbers().map((page, index) => (
-                        page === '...' ? (
-                          <span
-                            key={`ellipsis-${index}`}
-                            className="w-10 h-10 flex items-center justify-center text-muted-foreground"
-                          >
-                            ...
-                          </span>
-                        ) : (
-                          <button
-                            key={page}
-                            onClick={() => handlePageChange(page as number)}
-                            className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-                              page === currentPage
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-card border border-border text-muted-foreground hover:bg-secondary"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      ))}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleNext}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
+
+            {isLoading && [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="mb-px h-24 rounded-none" />)}
+            {isError && (
+              <div className="py-8">
+                <p className="font-medium">We could not load the documents.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
+                <Button className="mt-4" size="sm" onClick={() => refetch()}>Try again</Button>
+              </div>
+            )}
+            {!isLoading && !isError && results.length === 0 && (
+              <div className="py-12">
+                <p className="font-display text-2xl font-bold">No documents match.</p>
+                <p className="mt-2 text-muted-foreground">Try fewer filters or a different word.</p>
+                <button className={`mt-4 ${link}`} onClick={() => setParams({}, { replace: true })}>Clear all filters</button>
+              </div>
+            )}
+
+            <ul className="divide-y divide-border">
+              {shown.map((d) => {
+                const age = Date.now() - new Date(d["Date Published"]).getTime();
+                const meta = [d.Source, d.Type, formatDate(d["Date Published"]), d.fileSize].filter(Boolean).join(", ");
+                return (
+                  <li key={d.id} className={`grid grid-cols-[4.5rem_1fr] items-baseline gap-x-6 gap-y-2 py-6 hover:bg-secondary/60 hover:pl-3 md:grid-cols-[6rem_1fr_auto] ${EASE}`}>
+                    <span className="font-mono text-2xl font-medium tabular-nums text-primary">{yearOf(d) || "n/a"}</span>
+                    <div className="min-w-0">
+                      <Link to={`/documents/${d.id}`} className="line-clamp-2 font-display text-xl font-semibold leading-snug underline-offset-4 hover:underline md:text-2xl">{d.Title}</Link>
+                      {age >= 0 && age <= 30 * DAY && (
+                        <span title="Published in the last 30 days" className="ml-3 rounded-sm bg-gold px-1.5 py-0.5 align-middle font-mono text-[11px] font-medium uppercase text-gold-foreground">New</span>
+                      )}
+                      <p className="mt-1 text-sm text-muted-foreground">{meta}</p>
+                    </div>
+                    <div className="col-span-2 flex items-center gap-6 md:col-span-1">
+                      <Link to={`/documents/${d.id}`} className={`inline-flex items-center gap-2 hover:gap-3 ${link}`}>Open <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+                      {d["Document URL"] && (
+                        <a href={d["Document URL"]} target="_blank" rel="noopener noreferrer" className="font-medium text-muted-foreground underline underline-offset-4 hover:text-primary">
+                          Download<span className="sr-only">: {d.Title}</span>
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {totalPages > 1 && (
+              <nav className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-6" aria-label="Pages">
+                <button disabled={current === 1} onClick={() => go(current - 1)} className={`${link} disabled:opacity-40 disabled:no-underline`}>Previous</button>
+                <ul className="flex items-center gap-1 font-mono text-sm">
+                  {pageList(current, totalPages).map((p, i) => p === "gap"
+                    ? <li key={`g${i}`} className="px-2 text-muted-foreground" aria-hidden="true">…</li>
+                    : <li key={p}><button onClick={() => go(p)} aria-current={p === current ? "page" : undefined}
+                        className={`min-w-9 border-b-2 px-2 py-1 tabular-nums ${EASE} ${p === current ? "border-gold font-bold" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{p}</button></li>)}
+                </ul>
+                <button disabled={current === totalPages} onClick={() => go(current + 1)} className={`${link} disabled:opacity-40 disabled:no-underline`}>Next</button>
+              </nav>
+            )}
+          </section>
         </div>
-      </section>
+      </div>
     </Layout>
   );
 };

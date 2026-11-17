@@ -1,101 +1,58 @@
 import { Link } from "react-router-dom";
-import { FileText, Mail, Twitter, Github } from "lucide-react";
+import { useDocumentStats } from "@/hooks/useDocumentStats";
+
+const EASE = "transition-all duration-200 ease-out";
+const item = `inline-block py-1 text-foreground/80 underline-offset-4 hover:text-primary hover:underline ${EASE}`;
 
 const Footer = () => {
+  const { categoriesWithCounts } = useDocumentStats();
+
   return (
-    <footer className="border-t border-border bg-card">
-      <div className="container-custom py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="md:col-span-1">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-hero">
-                <FileText className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-display text-xl font-bold text-foreground">
-                Civic<span className="text-accent">Lens</span>
-              </span>
+    <footer className="border-t border-border bg-secondary">
+      <div className="container-custom py-16">
+        <div className="grid gap-12 md:grid-cols-12">
+          <div className="md:col-span-5">
+            <Link to="/" className="display-condensed font-display text-6xl font-extrabold leading-none tracking-tight md:text-7xl">
+              Civic<span className="text-primary">Lens</span>
             </Link>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Making Nigeria's public documents accessible, searchable, and understandable for all citizens.
+            <p className="mt-5 max-w-sm text-muted-foreground">
+              Nigeria's public documents and numbers, in one place. Every page links back to the official source.
             </p>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h4 className="font-display font-semibold text-foreground mb-4">Quick Links</h4>
-            <ul className="space-y-2">
-              {["Documents", "Categories", "AI Search", "Subscriptions"].map((item) => (
-                <li key={item}>
-                  <Link
-                    to={`/${item.toLowerCase().replace(" ", "-")}`}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {item}
-                  </Link>
-                </li>
+          <nav aria-label="Explore" className="md:col-span-3 md:col-start-7">
+            <h2 className="mb-3 font-display text-lg font-bold">Explore</h2>
+            <ul>
+              {[
+                ["Documents", "/documents"],
+                ["Categories", "/categories"],
+                ["Data", "/indicators"],
+                ["Get alerts", "/subscriptions"],
+              ].map(([name, path]) => (
+                <li key={path}><Link to={path} className={item}>{name}</Link></li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          {/* Categories */}
-          <div>
-            <h4 className="font-display font-semibold text-foreground mb-4">Categories</h4>
-            <ul className="space-y-2">
-              {["Budget Documents", "MTEF", "MTSS", "CBN Publications", "CBN Circulars"].map((item) => (
-                <li key={item}>
-                  <Link
-                    to="/categories"
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {item}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="font-display font-semibold text-foreground mb-4">Stay Connected</h4>
-            <p className="text-sm text-muted-foreground mb-4">
-              Subscribe to receive updates on new documents.
-            </p>
-            <div className="flex gap-3">
-              <a
-                href="#"
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary hover:bg-primary hover:text-primary-foreground transition-all duration-200"
-              >
-                <Twitter className="h-4 w-4" />
-              </a>
-              <a
-                href="#"
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary hover:bg-primary hover:text-primary-foreground transition-all duration-200"
-              >
-                <Github className="h-4 w-4" />
-              </a>
-              <a
-                href="#"
-                className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary hover:bg-primary hover:text-primary-foreground transition-all duration-200"
-              >
-                <Mail className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
+          {categoriesWithCounts.length > 0 && (
+            <nav aria-label="Categories" className="md:col-span-3">
+              <h2 className="mb-3 font-display text-lg font-bold">Categories</h2>
+              <ul>
+                {categoriesWithCounts.slice(0, 6).map((c) => (
+                  <li key={c.id}>
+                    <Link to={`/documents?category=${encodeURIComponent(c.id)}`} className={item}>{c.name}</Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
         </div>
 
-        <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} CivicLens. Promoting transparency in public library.
+        <div className="mt-14 flex flex-col justify-between gap-3 border-t border-border pt-6 text-sm text-muted-foreground md:flex-row">
+          <p className="max-w-xl">
+            An independent civic tech project. Documents come from public government websites and remain the property of their institutions.
           </p>
-          <div className="flex gap-6">
-            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Terms of Use
-            </a>
-          </div>
+          <p className="font-mono">© {new Date().getFullYear()} CivicLens</p>
         </div>
       </div>
     </footer>
