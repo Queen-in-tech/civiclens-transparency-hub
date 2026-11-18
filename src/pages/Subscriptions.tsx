@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Bell, Check, Mail, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,122 +14,66 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useDocumentStats } from "@/hooks/useDocumentStats";
 
-const SUBSCRIPTION_ENDPOINT = "https://n8n.arokolabs.com/webhook/57497a49-e246-40bf-994c-d0c5317c949b";
+// Set VITE_SUBSCRIBE_WEBHOOK_URL to use a different n8n flow without changing code.
+const ENDPOINT =
+  import.meta.env.VITE_SUBSCRIBE_WEBHOOK_URL ?? "https://n8n.arokolabs.com/webhook/57497a49-e246-40bf-994c-d0c5317c949b";
+const EASE = "transition-all duration-200 ease-out";
+const field = `w-full border-b-2 border-border bg-transparent py-3 font-display text-2xl placeholder:text-muted-foreground focus:border-gold focus:outline-none ${EASE}`;
+
+// Reads the reply from n8n. It accepts plain text or JSON like {"status":"created"}.
+const classify = (ok: boolean, text: string): "exists" | "success" | "error" => {
+  let status = text;
+  try {
+    const data = JSON.parse(text);
+    status = typeof data === "string" ? data : `${data?.status ?? ""} ${data?.message ?? ""}`;
+  } catch { /* plain text */ }
+  if (/active subscription exist|already/i.test(status)) return "exists";
+  return ok && /creat|updat|success/i.test(status) ? "success" : "error";
+};
 
 const Subscriptions = () => {
+  const { categoriesWithCounts } = useDocumentStats();
   const [email, setEmail] = useState("");
   const [keywords, setKeywords] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
-  const { toast } = useToast();
-  const { categoriesWithCounts} = useDocumentStats();
-  
+  const [picked, setPicked] = useState<string[]>([]);
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [askUpdate, setAskUpdate] = useState(false);
 
-  const handleCategoryToggle = (categoryId: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId]
-    );
-  };
+  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
-  const submitSubscription = async (update: boolean = false) => {
-    setIsLoading(true);
-    
-    // Parse keywords into array
-    const keywordsArray = keywords
-      .split(",")
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
-    
-    // Get category names from selected IDs
-    const categoryNames = selectedCategories
-      .map((id) => categoriesWithCounts.find((c) => c.id === id)?.id)
-      .filter((id): id is string => !!id);
-
-    const payload = {
-      email,
-      categories: categoryNames,
-      keywords: keywordsArray,
-      update,
-    };
-
+  const submit = async (update = false) => {
+    setState("loading");
     try {
-      const response = await fetch(SUBSCRIPTION_ENDPOINT, {
+      const response = await fetch(ENDPOINT, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          categories: picked,
+          keywords: keywords.split(",").map((k) => k.trim()).filter(Boolean),
+          update,
+        }),
       });
-
-      const responseText = await response.text();
-      
-      // If no response message, treat as error
-      if (!responseText || responseText.trim() === "") {
-        throw new Error("No response received from server");
-      }
-      
-      // Check if subscription already exists
-      if (responseText.includes("An active subscription exist")) {
-        setShowUpdateDialog(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check for success - must have explicit success message
-      if (responseText.includes("Subscription created")) {
-        setIsSubmitted(true);
-        toast({
-          title: "Success!",
-          description: update 
-            ? "Your subscription has been updated successfully." 
-            : "Your subscription has been created. Check your email for confirmation.",
-        });
-      } else {
-        throw new Error(responseText || "Failed to create subscription");
-      }
-    } catch (error) {
-      console.error("Subscription error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create subscription. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      const result = classify(response.ok, await response.text());
+      if (result === "exists") { setAskUpdate(true); setState("idle"); }
+      else setState(result === "success" ? "done" : "error");
+    } catch {
+      setState("error");
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitSubscription(false);
-  };
-
-  const handleUpdateConfirm = () => {
-    setShowUpdateDialog(false);
-    submitSubscription(true);
-  };
-
-  if (isSubmitted) {
+  if (state === "done") {
     return (
       <Layout>
-        <div className="container-custom py-20">
-          <div className="max-w-md mx-auto text-center">
-            <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-success/10 text-success mb-6">
-              <Check className="h-10 w-10" />
-            </div>
-            <h1 className="font-display text-2xl font-bold text-foreground mb-4">
-              Subscription Confirmed!
-            </h1>
-            <p className="text-muted-foreground mb-6">
-              You'll receive email notifications when new documents matching your preferences are published.
+        <div className="container-custom grid gap-10 py-20 md:grid-cols-12 md:py-28">
+          <div className="md:col-span-8 md:col-start-5">
+            <h1 className="display-condensed font-display text-6xl font-extrabold leading-none tracking-tight md:text-8xl">You are on the list.</h1>
+            <p className="mt-6 max-w-lg text-lg text-muted-foreground" role="status">
+              We will email <span className="font-mono text-foreground">{email.trim()}</span> when new documents match your choices. Check your inbox for a confirmation.
             </p>
-            <Button variant="outline" onClick={() => setIsSubmitted(false)}>
-              Update Preferences
-            </Button>
+            <button onClick={() => setState("idle")} className={`mt-8 font-semibold text-primary underline decoration-gold decoration-2 underline-offset-4 ${EASE}`}>
+              Change my choices
+            </button>
           </div>
         </div>
       </Layout>
@@ -139,189 +82,68 @@ const Subscriptions = () => {
 
   return (
     <Layout>
-      {/* Header */}
-      <section className="bg-gradient-to-br from-primary to-primary/90 py-12 md:py-16">
-        <div className="container-custom text-center max-w-2xl mx-auto">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-foreground/10 mb-6">
-            <Bell className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold text-primary-foreground mb-4">
-            Stay Updated
-          </h1>
-          <p className="text-primary-foreground/80 text-lg">
-            Subscribe to receive notifications when new documents are published in your areas of interest
+      <div className="container-custom grid gap-12 py-14 md:grid-cols-12">
+        <header className="md:col-span-4">
+          <h1 className="display-condensed font-display text-6xl font-extrabold leading-none tracking-tight md:text-7xl">Get alerts</h1>
+          <p className="mt-4 max-w-xs text-muted-foreground">
+            Tell us what you care about. We email you when new documents match.
           </p>
-        </div>
-      </section>
+          <p className="mt-4 max-w-xs text-sm text-muted-foreground">
+            Already subscribed? Enter the same email again to change your choices.
+          </p>
+        </header>
 
-      {/* Form */}
-      <section className="py-12 md:py-16">
-        <div className="container-custom">
-          <div className="max-w-xl mx-auto">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Email */}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-foreground mb-2"
-                >
-                  Email Address *
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    placeholder="your@email.com"
-                    className="w-full h-12 pl-12 pr-4 rounded-xl border border-input bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Keywords */}
-              <div>
-                <label
-                  htmlFor="keywords"
-                  className="block text-sm font-medium text-foreground mb-2"
-                >
-                  Keywords (optional)
-                </label>
-                <input
-                  type="text"
-                  id="keywords"
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                  placeholder="e.g., health, education, infrastructure"
-                  className="w-full h-12 px-4 rounded-xl border border-input bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Separate multiple keywords with commas
-                </p>
-              </div>
-
-              {/* Categories */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-3">
-                  Categories
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {categoriesWithCounts.map((category) => {
-                    const isSelected = selectedCategories.includes(category.id);
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() => handleCategoryToggle(category.id)}
-                        className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all duration-200 ${
-                          isSelected
-                            ? "border-primary bg-primary/5 shadow-soft"
-                            : "border-border bg-card hover:border-primary/30"
-                        }`}
-                      >
-                        <div
-                          className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
-                            isSelected
-                              ? "border-primary bg-primary"
-                              : "border-muted-foreground"
-                          }`}
-                        >
-                          {isSelected && (
-                            <Check className="h-3 w-3 text-primary-foreground" />
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-foreground">
-                            {category.name}
-                          </span>
-                          <p className="text-xs text-muted-foreground">
-                            {category.documentCount} documents
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Submit */}
-              <div className="pt-4">
-                <Button
-                  type="submit"
-                  variant="hero"
-                  size="xl"
-                  className="w-full"
-                  disabled={!email || isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Subscribing...
-                    </>
-                  ) : (
-                    <>
-                      <Bell className="h-5 w-5 mr-2" />
-                      Subscribe to Updates
-                    </>
-                  )}
-                </Button>
-                <p className="mt-4 text-center text-xs text-muted-foreground">
-                  You can unsubscribe at any time. We respect your privacy.
-                </p>
-              </div>
-            </form>
+        <form onSubmit={(e) => { e.preventDefault(); submit(false); }} className="space-y-12 md:col-span-8">
+          <div>
+            <label htmlFor="email" className="font-display text-lg font-bold">Email address</label>
+            <input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={`mt-2 ${field}`} />
           </div>
-        </div>
-      </section>
 
-      {/* Info Section */}
-      <section className="py-12 bg-muted/50">
-        <div className="container-custom">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="font-display text-xl font-semibold text-foreground mb-4">
-              What You'll Receive
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              {[
-                {
-                  title: "New Documents",
-                  description: "Instant alerts when documents matching your interests are published",
-                },
-                {
-                  title: "Weekly Digest",
-                  description: "A summary of all new documents from the past week",
-                },
-                {
-                  title: "Important Updates",
-                  description: "Notifications about significant policy changes and announcements",
-                },
-              ].map((item, index) => (
-                <div key={index} className="p-5 rounded-xl bg-card border border-border">
-                  <h3 className="font-medium text-foreground mb-2">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground">{item.description}</p>
-                </div>
-              ))}
-            </div>
+          <div>
+            <label htmlFor="keywords" className="font-display text-lg font-bold">Keywords <span className="font-sans text-sm font-normal text-muted-foreground">(optional)</span></label>
+            <input id="keywords" type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="health, education, roads" className={`mt-2 ${field}`} />
+            <p className="mt-2 text-sm text-muted-foreground">Separate keywords with commas.</p>
           </div>
-        </div>
-      </section>
 
-      {/* Update Confirmation Dialog */}
-      <AlertDialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+          {categoriesWithCounts.length > 0 && (
+            <fieldset>
+              <legend className="font-display text-lg font-bold">Types of document</legend>
+              <ul className="mt-3 divide-y divide-border border-y border-border">
+                {categoriesWithCounts.map((c) => (
+                  <li key={c.id}>
+                    <label className={`flex cursor-pointer items-center gap-4 py-4 hover:pl-3 ${EASE}`}>
+                      <input type="checkbox" checked={picked.includes(c.id)} onChange={() => toggle(c.id)} className="h-5 w-5 accent-[hsl(var(--primary))]" />
+                      <span className="flex-1 font-display text-xl font-semibold">{c.name}</span>
+                      <span className="font-mono text-sm tabular-nums text-muted-foreground">{c.documentCount}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
+          )}
+
+          <div>
+            <Button type="submit" variant="gold" size="lg" disabled={!email.trim() || state === "loading"}>
+              {state === "loading" ? (<><Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />Subscribing</>) : "Get alerts"}
+            </Button>
+            {state === "error" && (
+              <p role="alert" className="mt-4 font-medium text-destructive">
+                We could not save your alerts. Check your email address and try again.
+              </p>
+            )}
+          </div>
+        </form>
+      </div>
+
+      <AlertDialog open={askUpdate} onOpenChange={setAskUpdate}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Active Subscription Found</AlertDialogTitle>
-            <AlertDialogDescription>
-              An active subscription already exists for this email address. Would you like to update your subscription preferences?
-            </AlertDialogDescription>
+            <AlertDialogTitle>You already have alerts</AlertDialogTitle>
+            <AlertDialogDescription>This email is already subscribed. Replace its choices with the ones you just picked?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUpdateConfirm}>
-              Update Subscription
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => { setAskUpdate(false); submit(true); }}>Update my alerts</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
