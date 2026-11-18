@@ -8,6 +8,8 @@ import Documents from "./pages/Documents";
 import DocumentDetail from "./pages/DocumentDetail";
 import Categories from "./pages/Categories";
 import AISearch from "./pages/AISearch";
+import Sources from "./pages/Sources";
+import Privacy from "./pages/Privacy";
 import Subscriptions from "./pages/Subscriptions";
 import NotFound from "./pages/NotFound";
 import Indicators from "./pages/Indicators";
@@ -27,6 +29,8 @@ const App = () => (
           <Route path="/categories" element={<Categories />} />
           <Route path="/ai-search" element={<AISearch />} />
           <Route path="/indicators" element={<Indicators />} />
+          <Route path="/sources" element={<Sources />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/subscriptions" element={<Subscriptions />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

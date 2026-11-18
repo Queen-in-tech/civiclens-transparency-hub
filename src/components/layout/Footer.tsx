@@ -27,6 +27,8 @@ const Footer = () => {
                 ["Documents", "/documents"],
                 ["Categories", "/categories"],
                 ["Data", "/indicators"],
+                ["AI Search", "/ai-search"],
+                ["Sources", "/sources"],
                 ["Get alerts", "/subscriptions"],
               ].map(([name, path]) => (
                 <li key={path}><Link to={path} className={item}>{name}</Link></li>
@@ -52,7 +54,10 @@ const Footer = () => {
           <p className="max-w-xl">
             An independent civic tech project. Documents come from public government websites and remain the property of their institutions.
           </p>
-          <p className="font-mono">© {new Date().getFullYear()} CivicLens</p>
+          <p className="flex gap-6 font-mono">
+            <Link to="/privacy" className="underline underline-offset-4 hover:text-primary">Privacy</Link>
+            <span>© {new Date().getFullYear()} CivicLens</span>
+          </p>
         </div>
       </div>
     </footer>

@@ -11,16 +11,18 @@ import {
   CommandList,
 } from "@/components/ui/command";
 
-// The bar keeps to three links. Everything else lives in quick search and the phone menu.
+// The bar keeps to four links. Everything else lives in quick search and the phone menu.
 const mainLinks = [
   { name: "Documents", path: "/documents" },
   { name: "Categories", path: "/categories" },
   { name: "Data", path: "/indicators" },
+  { name: "AI Search", path: "/ai-search" },
 ];
 const allPages = [
   { name: "Home", path: "/" },
   ...mainLinks,
-  { name: "AI Search", path: "/ai-search" },
+  { name: "Sources", path: "/sources" },
+  { name: "Privacy notice", path: "/privacy" },
   { name: "Get alerts", path: "/subscriptions" },
 ];
 const EASE = "transition-all duration-200 ease-out";
@@ -83,7 +85,7 @@ const Navbar = () => {
             Civic<span className="text-primary">Lens</span>
           </Link>
 
-          <ul className="hidden items-center gap-9 md:flex">
+          <ul className="hidden items-center gap-8 md:flex">
             {mainLinks.map((l) => {
               const active = pathname === l.path || pathname.startsWith(`${l.path}/`);
               return (
