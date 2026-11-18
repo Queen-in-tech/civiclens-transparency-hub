@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
+import Markdown from "@/components/shared/Markdown";
 
 interface Message {
   id: string;
@@ -97,7 +98,11 @@ const DocumentChat = ({ documentUrl, documentTitle, documentType, id }: Document
         {messages.map((m) => (
           <div key={m.id}>
             <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">{m.role === "user" ? "You" : "Answer"}</p>
-            <p className={`mt-1 whitespace-pre-wrap ${m.role === "user" ? "font-display text-lg font-semibold" : ""}`}>{m.content}</p>
+            {m.role === "user" ? (
+              <p className="mt-1 whitespace-pre-wrap font-display text-lg font-semibold">{m.content}</p>
+            ) : (
+              <div className="mt-1"><Markdown>{m.content}</Markdown></div>
+            )}
           </div>
         ))}
         {loading && (

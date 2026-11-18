@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import Layout from "@/components/layout/Layout";
+import Markdown from "@/components/shared/Markdown";
 
 /**
  * AI Search is built and waiting for its backend.
@@ -136,7 +137,7 @@ const AISearch = () => {
                 )}
                 {t.status === "done" && (
                   <>
-                    <p className="mt-4 max-w-prose whitespace-pre-wrap leading-relaxed">{t.answer}</p>
+                    <div className="mt-4 max-w-prose"><Markdown>{t.answer ?? ""}</Markdown></div>
                     {t.sources && t.sources.length > 0 ? (
                       <section aria-label="Sources" className="mt-6">
                         <h3 className="font-mono text-xs uppercase tracking-wide text-muted-foreground">Sources</h3>
