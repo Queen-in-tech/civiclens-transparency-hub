@@ -27,6 +27,7 @@ const Footer = () => {
                 ["Documents", "/documents"],
                 ["Categories", "/categories"],
                 ["Data", "/indicators"],
+                ["AI Search", "/ai-search"],
                 ["Get alerts", "/subscriptions"],
               ].map(([name, path]) => (
                 <li key={path}><Link to={path} className={item}>{name}</Link></li>
