@@ -21,6 +21,8 @@ const mainLinks = [
 const allPages = [
   { name: "Home", path: "/" },
   ...mainLinks,
+  { name: "Sources", path: "/sources" },
+  { name: "Privacy notice", path: "/privacy" },
   { name: "Get alerts", path: "/subscriptions" },
 ];
 const EASE = "transition-all duration-200 ease-out";

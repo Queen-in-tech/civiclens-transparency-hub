@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -123,6 +124,9 @@ const Subscriptions = () => {
           )}
 
           <div>
+            <p className="mb-4 max-w-md text-sm text-muted-foreground">
+              We use your email only to send these alerts. See how we handle it in our <Link to="/privacy" className="font-semibold text-primary underline decoration-gold decoration-2 underline-offset-4">privacy notice</Link>.
+            </p>
             <Button type="submit" variant="gold" size="lg" disabled={!email.trim() || state === "loading"}>
               {state === "loading" ? (<><Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />Subscribing</>) : "Get alerts"}
             </Button>

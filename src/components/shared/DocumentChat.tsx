@@ -77,7 +77,7 @@ const DocumentChat = ({ documentUrl, documentTitle, documentType, id }: Document
       <h2 id="chat-heading" className="display-condensed font-display text-3xl font-extrabold leading-none tracking-tight">
         Ask this document
       </h2>
-      <p className="mt-2 text-sm text-muted-foreground">Answers come only from this document, not from the wider web.</p>
+      <p className="mt-2 text-sm text-muted-foreground">Answers come only from this document, not from the wider web. Please do not type personal details.</p>
 
       <div role="log" aria-live="polite" className="mt-4 flex-1 space-y-6 overflow-y-auto border-y border-border py-5">
         {messages.length === 0 && (
